@@ -1,0 +1,328 @@
+/* Mermaid Stepper: a pane with a toolbar, diagram tabs, and a stage that shows either the
+   sequence (sticky participant header, equal-width flush columns) or the map (an arrangeable canvas).
+   Both views read the shared tokens below; most of them are Obsidian's own variables, so the
+   plugin follows the active theme. Only the group hues and the fade levels are our own. */
+
+.ss-root {
+  /* Colour */
+  --ss-bg: var(--background-primary);
+  --ss-surface: var(--background-primary);
+  --ss-ink: var(--text-normal);
+  --ss-muted: var(--text-muted);
+  --ss-line: var(--background-modifier-border);
+  --ss-wire: var(--text-faint);
+  --ss-accent: var(--interactive-accent);
+  --ss-accent-ink: var(--text-on-accent);
+  --ss-accent-soft: color-mix(in srgb, var(--interactive-accent) 16%, var(--background-primary));
+  --ss-row-active: color-mix(in srgb, var(--interactive-accent) 8%, var(--background-primary));
+  --ss-chip: var(--background-modifier-hover);
+  --ss-step-bg: var(--background-secondary); /* step labels and notes: a quiet fill instead of the page colour */
+  /* Groups keep a hint of hue so they can be told apart, but sit close to the theme's neutrals. */
+  --ss-hue-1: #6d6cdc; --ss-hue-2: #00997d; --ss-hue-3: #d98a1f;
+  --ss-box-1: color-mix(in srgb, var(--ss-hue-1) 10%, var(--background-primary));
+  --ss-box-2: color-mix(in srgb, var(--ss-hue-2) 10%, var(--background-primary));
+  --ss-box-3: color-mix(in srgb, var(--ss-hue-3) 10%, var(--background-primary));
+  --ss-box-1-edge: color-mix(in srgb, var(--ss-hue-1) 30%, var(--background-modifier-border));
+  --ss-box-2-edge: color-mix(in srgb, var(--ss-hue-2) 30%, var(--background-modifier-border));
+  --ss-box-3-edge: color-mix(in srgb, var(--ss-hue-3) 30%, var(--background-modifier-border));
+  --ss-box-ink: var(--text-muted);
+
+  /* Type */
+  --ss-text: var(--font-ui-small);
+  --ss-text-small: var(--font-ui-smaller);
+  --ss-text-label: calc(var(--font-ui-smaller) * 0.875); /* uppercase eyebrows: group names, phase headings */
+  --ss-weight-strong: var(--font-semibold);
+  --ss-weight-participant: var(--font-medium);
+
+  /* Shape */
+  --ss-radius: var(--radius-s);
+  --ss-radius-group: var(--radius-m);
+  --ss-border: var(--border-width);
+  --ss-ring: 1.5px; /* the accent outline on a highlighted participant */
+  --ss-stroke: 1.5px; /* arrows, lifelines and group frames */
+  --ss-stroke-active: 2.25px; /* the current arrow and its lifelines */
+
+  /* Fading: how visible things outside the current step stay */
+  --ss-fade-step: 0.35; /* other steps and arrows */
+  --ss-fade-heading: 0.5;
+  --ss-fade-participant: 0.55; /* other participants and their lifelines */
+  --ss-fade-group: 0.7;
+  --ss-fade-hover: 0.75;
+
+  --ss-col-min: 92px;
+  --ss-ease: cubic-bezier(0.4, 0, 0.2, 1);
+
+  display: flex; flex-direction: column; height: 100%;
+  padding: 0 !important; overflow: hidden !important;
+  background: var(--ss-bg); color: var(--ss-ink);
+  font-family: var(--font-interface); font-size: var(--ss-text); line-height: var(--line-height-normal);
+}
+/* Dark themes: fading by opacity sinks into a dark background much faster than into a light one,
+   so things outside the step stay brighter there, and arrows use the muted text colour. */
+.theme-dark .ss-root {
+  --ss-wire: var(--text-muted);
+  --ss-fade-step: 0.55;
+  --ss-fade-heading: 0.7;
+  --ss-fade-participant: 0.7;
+  --ss-fade-group: 0.8;
+  --ss-fade-hover: 0.85;
+}
+.ss-root:focus { outline: none; }
+.ss-root [hidden] { display: none !important; }
+
+/* Toolbar */
+.ss-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px;
+  padding: 10px 14px; border-bottom: var(--ss-border) solid var(--ss-line);
+}
+.ss-brand { display: flex; flex-direction: column; min-width: 0; flex: 1 1 200px; }
+.ss-title { font-weight: var(--ss-weight-strong); font-size: var(--font-ui-medium); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ss-readout { display: flex; gap: 8px; align-items: baseline; min-width: 0; color: var(--ss-muted); font-size: var(--ss-text-small); }
+.ss-readout .ss-sec {
+  font-size: var(--ss-text-label); font-weight: var(--ss-weight-strong); letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--ss-accent); white-space: nowrap;
+}
+.ss-readout .ss-what { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.ss-controls { display: flex; align-items: center; gap: 6px; }
+.ss-root button.ss-btn {
+  height: auto; box-shadow: none; cursor: pointer;
+  border: var(--ss-border) solid var(--ss-line); background: var(--ss-surface); color: var(--ss-ink);
+  border-radius: 999px; padding: 4px 12px; font-size: var(--ss-text-small); font-weight: var(--font-medium);
+}
+.ss-root button.ss-btn:hover:not(:disabled) { border-color: var(--ss-accent); }
+.ss-root button.ss-btn:disabled { opacity: 0.4; cursor: default; }
+.ss-root button.ss-btn.ss-icon { padding: 4px 8px; display: inline-flex; align-items: center; }
+.ss-root button.ss-btn.ss-icon svg { width: 16px; height: 16px; }
+.ss-root button.ss-btn.ss-primary { background: var(--ss-accent); border-color: var(--ss-accent); color: var(--ss-accent-ink); }
+.ss-root button.ss-btn[aria-pressed="true"] { background: var(--ss-accent-soft); border-color: var(--ss-accent); }
+.ss-counter {
+  font-family: var(--font-monospace); font-size: var(--ss-text-small); min-width: 56px; text-align: center;
+  font-variant-numeric: tabular-nums; color: var(--ss-muted);
+}
+
+/* Layout toggle */
+.ss-seg { display: inline-flex; margin-left: 6px; }
+.ss-root .ss-seg button.ss-btn { border-radius: 0; }
+.ss-root .ss-seg button.ss-btn:first-child { border-radius: 999px 0 0 999px; }
+.ss-root .ss-seg button.ss-btn:last-child { border-radius: 0 999px 999px 0; margin-left: -1px; }
+
+/* Diagram tabs, one per sequence diagram in the note */
+.ss-tabs { display: flex; gap: 2px; overflow-x: auto; padding: 0 10px; border-bottom: var(--ss-border) solid var(--ss-line); }
+.ss-root button.ss-tab {
+  height: auto; box-shadow: none; background: none; border: 0; border-radius: 0; cursor: pointer;
+  white-space: nowrap; padding: 7px 10px 8px; margin-bottom: -1px; border-bottom: 2px solid transparent;
+  font-size: var(--ss-text-small); font-weight: var(--font-medium); color: var(--ss-muted);
+}
+.ss-root button.ss-tab:hover { color: var(--ss-ink); background: none; }
+.ss-root button.ss-tab[aria-selected="true"] { color: var(--ss-ink); border-bottom-color: var(--ss-accent); }
+.ss-tab .ss-count { margin-left: 6px; font-family: var(--font-monospace); font-size: var(--ss-text-label); color: var(--ss-muted); }
+
+.ss-stage { flex: 1; min-height: 0; overflow: auto; }
+.ss-diagram {
+  --n: 1;
+  min-width: calc(var(--n) * var(--ss-col-min) + 24px);
+  padding: 0 12px 100vh; /* room for even the last step to scroll up under the header */
+}
+.ss-grid { display: grid; grid-template-columns: repeat(var(--n), minmax(var(--ss-col-min), 1fr)); }
+.ss-foot { padding: 6px 14px; border-top: var(--ss-border) solid var(--ss-line); font-size: var(--ss-text-small); color: var(--ss-muted); }
+.ss-foot kbd { font-family: var(--font-monospace); font-size: var(--ss-text-label); }
+.ss-warn { color: var(--text-error); margin-left: 8px; cursor: help; }
+.ss-empty { padding: 40px 4px; color: var(--ss-muted); max-width: 46ch; }
+
+/* ---- Shared pieces ---- */
+
+/* A participant: a header cell in the sequence, a card on the map. Sender and receiver get the
+   same highlight (a tint and an accent outline); the arrow shows the direction. */
+.ss-participant {
+  display: flex; align-items: center; justify-content: center; text-align: center; box-sizing: border-box;
+  color: var(--ss-ink); background: var(--ss-surface);
+  font-size: var(--ss-text-small); font-weight: var(--ss-weight-participant); line-height: var(--line-height-tight);
+  overflow-wrap: anywhere;
+  transition: background 220ms var(--ss-ease), outline-color 220ms var(--ss-ease), opacity 220ms var(--ss-ease);
+}
+.ss-participant.ss-on {
+  background: var(--ss-accent-soft);
+  outline: var(--ss-ring) solid var(--ss-accent); outline-offset: calc(-1 * var(--ss-ring));
+}
+.ss-stepping .ss-participant:not(.ss-on), .ss-mapping .ss-participant:not(.ss-on) { opacity: var(--ss-fade-participant); }
+
+/* Group colours, shared by the sequence's banded columns and the map's boxes */
+.ss-b1 { --ss-fill: var(--ss-box-1); --ss-edge: var(--ss-box-1-edge); }
+.ss-b2 { --ss-fill: var(--ss-box-2); --ss-edge: var(--ss-box-2-edge); }
+.ss-b3 { --ss-fill: var(--ss-box-3); --ss-edge: var(--ss-box-3-edge); }
+
+/* ---- Sequence ---- */
+
+/* Sticky participant header. Each box is a coloured band over its participants,
+   framed together and set apart from its neighbours by a small gap. */
+.ss-head { position: sticky; top: 0; z-index: 5; background: var(--ss-bg); padding: 12px 0 6px; }
+.ss-boxband {
+  font-size: var(--ss-text-label); font-weight: var(--ss-weight-strong); letter-spacing: 0.14em; text-transform: uppercase;
+  margin-inline: 3px; padding: 6px 10px 5px; text-align: center;
+  border-radius: var(--ss-radius-group) var(--ss-radius-group) 0 0;
+  background: var(--ss-fill); color: var(--ss-box-ink);
+  transition: opacity 220ms var(--ss-ease);
+}
+.ss-boxframe {
+  position: relative; z-index: 1; pointer-events: none;
+  margin-inline: 3px; border: var(--ss-stroke) solid var(--ss-edge); border-radius: var(--ss-radius-group);
+  transition: opacity 220ms var(--ss-ease);
+}
+.ss-actor {
+  min-height: 48px; padding: 6px;
+  border-left: var(--ss-border) solid var(--ss-line); border-bottom: var(--ss-border) solid var(--ss-line);
+}
+.ss-actor.ss-first, .ss-actor.ss-box-start { border-left: 0; }
+.ss-actor.ss-in-box { border-bottom-color: transparent; }
+.ss-actor.ss-box-start { margin-left: 3px; border-bottom-left-radius: var(--ss-radius); }
+.ss-actor.ss-box-end { margin-right: 3px; border-bottom-right-radius: var(--ss-radius); }
+
+/* Body: lifelines under rows, a moving highlight under both */
+.ss-body { position: relative; }
+.ss-lifelines { position: absolute; inset: 0; pointer-events: none; z-index: 1; }
+.ss-ll { position: relative; }
+.ss-ll::before {
+  content: ""; position: absolute; top: 0; bottom: 0;
+  left: calc(50% - var(--ss-stroke) / 2); width: var(--ss-stroke);
+  background: var(--ss-line); transition: background 220ms var(--ss-ease), opacity 220ms var(--ss-ease);
+}
+.ss-hl {
+  position: absolute; left: 0; right: 0; top: 0; z-index: 0; background: var(--ss-row-active);
+  border-radius: var(--ss-radius-group); transition: transform 260ms var(--ss-ease), height 260ms var(--ss-ease);
+}
+.ss-row {
+  position: relative; z-index: 2;
+  display: grid; grid-template-columns: repeat(var(--n), minmax(var(--ss-col-min), 1fr));
+  transition: opacity 220ms var(--ss-ease);
+  scroll-margin-top: var(--head-h, 100px);
+}
+.ss-row.ss-step { cursor: pointer; padding-block: 7px 9px; scroll-margin-top: calc(var(--head-h, 100px) + 32px); }
+.ss-span { min-width: 0; }
+
+.ss-label {
+  display: flex; justify-content: center; align-items: baseline; gap: 6px;
+  width: fit-content; max-width: calc(100% - 12px); margin-inline: auto; box-sizing: border-box;
+  padding: 3px 10px 3px 5px; border: var(--ss-border) solid var(--ss-line); border-radius: var(--ss-radius);
+  background: var(--ss-step-bg); text-align: center; font-size: var(--ss-text-small); color: var(--ss-ink);
+  white-space: pre-line; transition: border-color 220ms var(--ss-ease), background 220ms var(--ss-ease);
+}
+.ss-num {
+  flex: none; display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding-inline: 4px;
+  border-radius: 999px; background: var(--ss-chip); color: var(--ss-ink);
+  font-family: var(--font-monospace); font-size: var(--ss-text-label); font-variant-numeric: tabular-nums;
+  transform: translateY(-1px);
+  transition: background 220ms var(--ss-ease), color 220ms var(--ss-ease);
+}
+.ss-wire {
+  position: relative; height: 12px; margin-top: 4px; color: var(--ss-wire);
+  margin-inline: calc(100% / (2 * var(--k)));
+  transition: color 220ms var(--ss-ease);
+}
+.ss-wire::before {
+  content: ""; position: absolute; left: 0; right: 0; top: calc(50% - var(--ss-stroke) / 2);
+  border-top: var(--ss-stroke) solid currentColor;
+}
+.ss-dashed .ss-wire::before { border-top-style: dashed; }
+.ss-wire .ss-tip { position: absolute; top: 1px; display: block; width: 10px; height: 10px; }
+.ss-dir-r .ss-wire .ss-tip { right: -1px; }
+.ss-dir-l .ss-wire .ss-tip { left: -1px; transform: scaleX(-1); }
+.ss-dir-self .ss-wire { margin-left: calc(100% * var(--off, 0.5)); margin-right: 0; width: 36px; height: 22px; }
+.ss-dir-self .ss-wire::before {
+  top: 0; bottom: 0; border: var(--ss-stroke) solid currentColor; border-left: 0; border-radius: 0 8px 8px 0;
+}
+.ss-dir-self.ss-dashed .ss-wire::before { border-style: dashed; border-left: 0; }
+.ss-dir-self .ss-wire .ss-tip { left: -1px; top: auto; bottom: -4px; transform: scaleX(-1); }
+
+.ss-notecard {
+  display: flex; gap: 6px; align-items: baseline; justify-content: center;
+  margin-inline: max(6px, calc(100% / (2 * var(--k)) - 56px));
+  padding: 7px 12px; border-radius: var(--ss-radius); font-size: var(--ss-text-small); text-align: center; white-space: pre-line;
+  background: var(--ss-step-bg); border: var(--ss-stroke) dashed var(--ss-wire); color: var(--ss-ink);
+  transition: border-color 220ms var(--ss-ease), background 220ms var(--ss-ease);
+}
+
+/* Phase headings stick under the participant header until the next one takes their place. */
+.ss-row.ss-section, .ss-row.ss-block {
+  position: sticky; top: var(--head-top, 0px); z-index: 4;
+  padding-block: 12px 6px; background: var(--ss-bg);
+}
+.ss-band {
+  display: flex; align-items: center; gap: 12px;
+  font-size: var(--ss-text-label); font-weight: var(--ss-weight-strong); letter-spacing: 0.14em; text-transform: uppercase; color: var(--ss-muted);
+}
+.ss-band::after { content: ""; flex: 1; height: var(--ss-border); background: var(--ss-line); }
+.ss-band .ss-kind { color: var(--ss-accent); }
+.ss-row.ss-block .ss-band { letter-spacing: 0.04em; text-transform: none; font-size: var(--ss-text-small); font-weight: var(--font-medium); }
+.ss-row.ss-block .ss-band .ss-kind { text-transform: uppercase; letter-spacing: 0.14em; font-size: var(--ss-text-label); font-weight: var(--ss-weight-strong); }
+
+/* Stepping state */
+.ss-stepping .ss-row.ss-step:not(.ss-active) { opacity: var(--ss-fade-step); }
+.ss-stepping .ss-row.ss-section:not(.ss-current) .ss-band,
+.ss-stepping .ss-row.ss-block:not(.ss-current) .ss-band { opacity: var(--ss-fade-heading); }
+.ss-row.ss-current .ss-band { color: var(--ss-ink); }
+.ss-row.ss-active .ss-wire { color: var(--ss-accent); }
+/* The current step's label, in the sequence row or on the map arrow */
+.ss-row.ss-active .ss-num, .ss-label-on .ss-num { background: var(--ss-accent); color: var(--ss-accent-ink); }
+.ss-row.ss-active .ss-label, .ss-label-on { border-color: var(--ss-accent); background: var(--ss-accent-soft); }
+.ss-row.ss-active .ss-notecard { border-color: var(--ss-accent); border-style: solid; background: var(--ss-accent-soft); }
+.ss-stepping .ss-ll:not(.ss-on)::before { opacity: var(--ss-fade-participant); }
+.ss-ll.ss-on::before { background: var(--ss-accent); width: var(--ss-stroke-active); left: calc(50% - var(--ss-stroke-active) / 2); }
+.ss-row.ss-active .ss-wire::before { border-top-width: var(--ss-stroke-active); top: calc(50% - var(--ss-stroke-active) / 2); }
+.ss-row.ss-active.ss-dir-self .ss-wire::before { border-width: var(--ss-stroke-active); border-left: 0; top: 0; }
+.ss-stepping .ss-boxband:not(.ss-on), .ss-stepping .ss-boxframe:not(.ss-on) { opacity: var(--ss-fade-group); }
+.ss-row.ss-step:hover:not(.ss-active) { opacity: var(--ss-fade-hover); }
+
+/* ---- Map: a canvas of boxes and participant cards you arrange yourself, with elbow arrows ---- */
+
+.ss-mapbar {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px;
+  padding: 6px 14px; border-bottom: var(--ss-border) solid var(--ss-line); color: var(--ss-muted); font-size: var(--ss-text-small);
+}
+.ss-mapbar-tools { display: inline-flex; align-items: center; gap: 4px; }
+.ss-zoom { min-width: 40px; text-align: center; font-variant-numeric: tabular-nums; }
+.ss-diagram.ss-map-mode { min-width: 0; padding: 0; }
+.ss-mapwrap {
+  position: relative; overflow: hidden; cursor: grab; user-select: none; touch-action: none;
+  background-image: radial-gradient(var(--ss-line) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+.ss-canvas { position: relative; transform-origin: 0 0; }
+.ss-panning .ss-mapwrap, .ss-panning .ss-mapwrap * { cursor: grabbing !important; }
+
+.ss-mbox {
+  position: absolute; z-index: 1; box-sizing: border-box; cursor: move; touch-action: none;
+  border: var(--ss-border) solid var(--ss-edge, var(--ss-line)); border-radius: var(--ss-radius);
+  background: color-mix(in srgb, var(--ss-fill, var(--background-secondary)) 60%, transparent);
+  transition: opacity 220ms var(--ss-ease), border-color 220ms var(--ss-ease);
+}
+.ss-mbox-label { position: absolute; left: 4px; bottom: 100%; margin-bottom: 4px; max-width: 100%; color: var(--ss-ink); }
+.ss-mhandle {
+  position: absolute; right: -5px; bottom: -5px; width: 10px; height: 10px; cursor: nwse-resize;
+  background: var(--ss-surface); border: var(--ss-border) solid var(--ss-edge, var(--ss-wire)); border-radius: var(--ss-radius);
+}
+.ss-mapping .ss-mbox:not(.ss-on) { opacity: var(--ss-fade-group); }
+
+.ss-mnode {
+  position: absolute; z-index: 3; cursor: grab; touch-action: none; user-select: none; padding: 6px 10px;
+  border: var(--ss-border) solid var(--ss-line); border-radius: var(--ss-radius); box-shadow: var(--shadow-s);
+}
+.ss-mnode:active { cursor: grabbing; }
+
+.ss-medges { position: absolute; top: 0; left: 0; z-index: 2; pointer-events: none; overflow: visible; }
+.ss-medge {
+  fill: none; stroke: var(--ss-wire); stroke-width: var(--ss-stroke); stroke-linejoin: round;
+  transition: opacity 220ms var(--ss-ease);
+}
+.ss-medge.ss-dashed { stroke-dasharray: 5 4; }
+.ss-medge.ss-active { stroke: var(--ss-accent); stroke-width: var(--ss-stroke-active); opacity: 1; }
+.ss-mapping .ss-medge:not(.ss-active) { opacity: var(--ss-fade-step); }
+.ss-marker { fill: var(--ss-wire); }
+.ss-marker-on { fill: var(--ss-accent); }
+
+/* Holds the shared step label on the map; only positioning and a lift off the arrows are its own. */
+.ss-mcard { position: absolute; z-index: 4; pointer-events: none; width: max-content; max-width: 240px; }
+.ss-mcard .ss-label { max-width: 100%; margin: 0; box-shadow: var(--shadow-s); }
+
+@media (prefers-reduced-motion: reduce) {
+  .ss-root *, .ss-root *::before { transition: none !important; }
+}
