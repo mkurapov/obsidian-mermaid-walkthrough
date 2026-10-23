@@ -4,8 +4,8 @@ An Obsidian plugin for stepping through the Mermaid sequence diagrams in a note 
 
 It has two views:
 
-- **Sequence**: the diagram as a list of steps under a header of participants that stays pinned while you scroll. The current step moves to the top, so you can always see who is involved.
-- **Map**: the participants and their boxes as cards on a canvas, with elbow arrows between them. Drag cards and boxes into whatever layout you want. The layout is saved per diagram.
+- **Sequence**: the diagram as a list of steps under a header of participants that stays pinned while you scroll. Phase headings pin under the participants while their steps scroll past, with any `alt`, `opt` or `loop` heading pinned just below. The current step moves to the top, so you can always see who is involved.
+- **Map**: the participants and their boxes as cards on a canvas, with elbow arrows between them. The current step's label sits on its arrow, with any `alt`, `opt` or `loop` it belongs to in a tab on top. The phase it is in shows in a box at the bottom left of the canvas. Drag cards and boxes into whatever layout you want. The layout is saved per diagram.
 
 ## Usage
 
@@ -38,6 +38,7 @@ Each diagram in the note gets its own tab, named after the heading above it. The
 
 Wrap related messages in a `rect` block and name it with a `%%` comment on the next line. The walkthrough shows the name as a heading over that group of steps. Mermaid ignores the comment, so the diagram still renders normally.
 
+````markdown
 ```mermaid
 sequenceDiagram
     participant A as Alice
@@ -49,10 +50,25 @@ sequenceDiagram
         B-->>A: Hi
     end
 ```
+````
 
 Don't put the name after the color (`rect rgb(...) Handshake`): Mermaid reads it as part of the color and draws a black box.
 
-`box` groups become the coloured participant groups in both views. `loop`, `alt`, `opt`, `par`, `critical` and `break` blocks show as labelled sections. Notes are steps like any message.
+A note that spans every participant, from the first to the last, also starts a phase named by its text. The phase runs until the next such note, or until the block it is in ends.
+
+````markdown
+```mermaid
+sequenceDiagram
+    participant A as Alice
+    participant B as Bob
+
+    Note over A,B: Handshake
+    A->>B: Hello
+    B-->>A: Hi
+```
+````
+
+`box` groups become the coloured participant groups in both views. `loop`, `alt`, `opt`, `par`, `critical` and `break` blocks show as labelled sections inside their phase. Other notes are steps like any message.
 
 ## Installation
 
