@@ -17,7 +17,7 @@
   --mw-row-active: color-mix(in srgb, var(--interactive-accent) 8%, var(--background-primary));
   --mw-step-bg: var(--background-secondary); /* step labels and notes: a quiet fill instead of the page colour */
   /* Groups keep a hint of hue so they can be told apart, but sit close to the theme's neutrals. */
-  --mw-hue-1: #6d6cdc; --mw-hue-2: #00997d; --mw-hue-3: #d98a1f;
+  --mw-hue-1: var(--color-purple); --mw-hue-2: var(--color-green); --mw-hue-3: var(--color-orange);
   --mw-box-1: color-mix(in srgb, var(--mw-hue-1) 10%, var(--background-primary));
   --mw-box-2: color-mix(in srgb, var(--mw-hue-2) 10%, var(--background-primary));
   --mw-box-3: color-mix(in srgb, var(--mw-hue-3) 10%, var(--background-primary));
@@ -54,10 +54,11 @@
   --mw-ease: cubic-bezier(0.4, 0, 0.2, 1);
 
   display: flex; flex-direction: column; height: 100%;
-  padding: 0 !important; overflow: hidden !important;
   background: var(--mw-bg); color: var(--mw-ink);
   font-family: var(--font-interface); font-size: var(--mw-text); line-height: var(--line-height-normal);
 }
+/* Specific enough to beat the default .view-content padding and scrolling without !important. */
+.workspace-leaf-content .view-content.mw-root { padding: 0; overflow: hidden; }
 /* Dark themes: fading by opacity sinks into a dark background much faster than into a light one,
    so things outside the step stay brighter there, and arrows use the muted text colour. */
 .theme-dark .mw-root {
@@ -169,6 +170,7 @@
    framed together and set apart from its neighbours by a small gap. */
 .mw-head { position: sticky; top: 0; z-index: 5; background: var(--mw-bg); padding: 12px 0 4px; }
 .mw-boxband {
+  grid-row: 1;
   font-size: var(--mw-text-small); font-weight: var(--font-medium);
   margin-inline: 3px; padding: 5px 10px; text-align: center;
   border-radius: var(--mw-radius-group) var(--mw-radius-group) 0 0;
@@ -176,6 +178,7 @@
   transition: opacity 220ms var(--mw-ease);
 }
 .mw-boxframe {
+  grid-row: 1 / 3;
   position: relative; z-index: 1; pointer-events: none;
   margin-inline: 3px; border: var(--mw-stroke) solid var(--mw-edge); border-radius: var(--mw-radius-group);
   transition: opacity 220ms var(--mw-ease);
@@ -264,14 +267,16 @@
 
 /* Phase headings stick under the participant header while their own rows scroll past (each
    heading shares an .mw-scope with its rows). Inner headings pin just under the outer ones;
-   stackHeadings() sets their offsets. */
+   stackHeadings() sets their offsets, and nested ones sit a layer lower so they slide under. */
 .mw-row.mw-section, .mw-row.mw-block {
   position: sticky; top: var(--head-top, 0px); z-index: 4;
   padding-block: 12px 6px; background: var(--mw-bg);
 }
+.mw-scope .mw-scope > .mw-row:first-child { z-index: 3; }
 /* A phase's own rules set it apart, so it needs no gap above, which also keeps it snug under the participants. */
 .mw-row.mw-section { padding-top: 0; }
 .mw-band {
+  grid-column: 1 / -1;
   display: flex; align-items: center; gap: 12px;
   font-size: var(--mw-text-small); font-weight: var(--mw-weight-strong); color: var(--mw-muted);
 }
@@ -347,6 +352,7 @@
 .mw-mapping .mw-mbox:not(.mw-on) { opacity: var(--mw-fade-group); }
 
 .mw-mnode {
+  width: var(--mw-node-w); height: var(--mw-node-h);
   position: absolute; z-index: 3; cursor: grab; touch-action: none; user-select: none; padding: 6px 10px;
   border: var(--mw-border) solid var(--mw-line); border-radius: var(--mw-radius); box-shadow: var(--shadow-s);
 }

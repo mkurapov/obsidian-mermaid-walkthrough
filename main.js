@@ -4,7 +4,6 @@ const { Plugin, ItemView, MarkdownView, setIcon, debounce } = require('obsidian'
 
 const VIEW_TYPE = 'mermaid-walkthrough';
 
-const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const clean = (s) => s.replace(/<br\s*\/?>/gi, '\n').replace(/#(\d+);/g, (_, c) => String.fromCharCode(+c)).trim();
 
 // ---- Parsing: the subset of Mermaid sequenceDiagram that matters for stepping ----
@@ -176,14 +175,28 @@ function toneFor(color, bi) {
   return h >= 200 && h < 330 ? 'mw-b1' : h >= 90 && h < 200 ? 'mw-b2' : 'mw-b3';
 }
 
+// Splits "a b c" into the class list createEl expects.
+const classes = (s) => s.split(' ').filter(Boolean);
+
+// "kind text", the way a block names itself: `alt` in a quieter weight, then its condition.
+function appendBlockName(el, b, sep = '') {
+  el.createSpan({ cls: 'mw-kind', text: b.kind });
+  if (b.text) el.appendText(sep + b.text);
+}
+
 const TIPS = {
-  arrow: '<svg class="mw-tip" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M0 0 L10 5 L0 10 Z" fill="currentColor"/></svg>',
-  open: '<svg class="mw-tip" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 1 L9 5 L1 9" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
-  cross: '<svg class="mw-tip" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 1 L9 9 M9 1 L1 9" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
-  none: '',
+  arrow: { d: 'M0 0 L10 5 L0 10 Z', fill: 'currentColor' },
+  open: { d: 'M1 1 L9 5 L1 9', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' },
+  cross: { d: 'M1 1 L9 9 M9 1 L1 9', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' },
 };
 
-function renderDiagram(model) {
+function appendTip(el, head) {
+  if (!TIPS[head]) return;
+  el.createSvg('svg', { attr: { class: 'mw-tip', width: '10', height: '10', viewBox: '0 0 10 10', 'aria-hidden': 'true' } })
+    .createSvg('path', { attr: TIPS[head] });
+}
+
+function renderDiagram(model, el) {
   const P = model.participants;
   const n = P.length;
   const col = (id) => model.idx.get(id) + 1;
@@ -195,7 +208,7 @@ function renderDiagram(model) {
 
   const actorRow = model.boxes.some((b) => b.members.length) ? 2 : 1;
   const cls = P.map((_, i) => (i === 0 ? ' mw-first' : ''));
-  let h = '<div class="mw-head"><div class="mw-grid">';
+  const grid = el.createDiv('mw-head').createDiv('mw-grid');
   model.boxes.forEach((b, bi) => {
     if (!b.members.length) return;
     const { lo, hi } = span(b.members);
@@ -203,27 +216,31 @@ function renderDiagram(model) {
     for (let c = lo; c <= hi; c++) cls[c - 1] += ' mw-in-box';
     cls[lo - 1] += ' mw-box-start';
     cls[hi - 1] += ' mw-box-end';
-    h += `<div class="mw-boxband ${tone}" data-box="${bi}" style="grid-column:${lo}/${hi + 1};grid-row:1">${esc(b.label)}</div>`;
-    h += `<div class="mw-boxframe ${tone}" data-box="${bi}" style="grid-column:${lo}/${hi + 1};grid-row:1/3" aria-hidden="true"></div>`;
+    grid.createDiv({ cls: ['mw-boxband', tone], attr: { 'data-box': bi }, text: b.label }).style.gridColumn = `${lo}/${hi + 1}`;
+    grid.createDiv({ cls: ['mw-boxframe', tone], attr: { 'data-box': bi, 'aria-hidden': 'true' } }).style.gridColumn = `${lo}/${hi + 1}`;
   });
-  P.forEach((p, i) => { h += `<div class="mw-participant mw-actor${cls[i]}" data-i="${i}" style="grid-column:${i + 1};grid-row:${actorRow}">${esc(p.label)}</div>`; });
-  h += '</div></div>';
+  P.forEach((p, i) => {
+    const actor = grid.createDiv({ cls: classes(`mw-participant mw-actor${cls[i]}`), attr: { 'data-i': i }, text: p.label });
+    Object.assign(actor.style, { gridColumn: String(i + 1), gridRow: String(actorRow) });
+  });
 
-  h += '<div class="mw-body"><div class="mw-hl" hidden></div><div class="mw-grid mw-lifelines" aria-hidden="true">';
-  P.forEach((_, i) => { h += `<div class="mw-ll" data-i="${i}"></div>`; });
-  h += '</div>';
+  const body = el.createDiv('mw-body');
+  body.createDiv('mw-hl').hidden = true;
+  const lifelines = body.createDiv({ cls: ['mw-grid', 'mw-lifelines'], attr: { 'aria-hidden': 'true' } });
+  P.forEach((_, i) => lifelines.createDiv({ cls: 'mw-ll', attr: { 'data-i': i } }));
 
   // Each heading and the rows under it share a wrapper, so the pinned heading lets go where its
   // phase or block ends instead of lingering over the steps that follow.
-  const scopes = []; // close index of each open wrapper, innermost last
+  const scopes = []; // {close, el} of each open wrapper, innermost last
+  const parent = () => (scopes.length ? scopes[scopes.length - 1].el : body);
   model.items.forEach((it, ii) => {
-    while (scopes.length && scopes[scopes.length - 1] <= ii) { scopes.pop(); h += '</div>'; }
-    if (it.type === 'section' || it.type === 'block') { scopes.push(it.close); h += '<div class="mw-scope">'; }
+    while (scopes.length && scopes[scopes.length - 1].close <= ii) scopes.pop();
+    if (it.type === 'section' || it.type === 'block') scopes.push({ close: it.close, el: parent().createDiv('mw-scope') });
     if (it.type === 'end') return;
     if (it.type === 'section') {
-      h += `<div class="mw-row mw-section" data-item="${ii}"><div class="mw-band" style="grid-column:1/-1">${esc(it.text)}</div></div>`;
+      parent().createDiv({ cls: ['mw-row', 'mw-section'], attr: { 'data-item': ii } }).createDiv({ cls: 'mw-band', text: it.text });
     } else if (it.type === 'block') {
-      h += `<div class="mw-row mw-block" data-item="${ii}"><div class="mw-band" style="grid-column:1/-1"><span class="mw-kind">${esc(it.kind)}</span>${esc(it.text)}</div></div>`;
+      appendBlockName(parent().createDiv({ cls: ['mw-row', 'mw-block'], attr: { 'data-item': ii } }).createDiv('mw-band'), it);
     } else if (it.type === 'msg') {
       let { lo, hi, k } = span([it.from, it.to]);
       const a = col(it.from), b = col(it.to);
@@ -234,18 +251,33 @@ function renderDiagram(model) {
         if (a < n) { hi = a + 1; off = '0.25'; } else { lo = a - 1; off = '0.75'; }
         k = 2;
       }
-      h += `<div class="mw-row mw-step mw-msg mw-dir-${dir}${it.dashed ? ' mw-dashed' : ''}" data-step="${it.step}" data-item="${ii}">` +
-        `<div class="mw-span" style="grid-column:${lo}/${hi + 1};--k:${k}${off ? `;--off:${off}` : ''}">` +
-        `<div class="mw-label"><span class="mw-num">${it.step + 1}</span><span>${esc(it.text)}</span></div>` +
-        `<div class="mw-wire">${TIPS[it.head]}</div></div></div>`;
+      const row = parent().createDiv({
+        cls: classes(`mw-row mw-step mw-msg mw-dir-${dir}${it.dashed ? ' mw-dashed' : ''}`),
+        attr: { 'data-step': it.step, 'data-item': ii },
+      });
+      const sp = spanEl(row, lo, hi, k);
+      if (off) sp.style.setProperty('--off', off);
+      appendStepLabel(sp.createDiv('mw-label'), it);
+      appendTip(sp.createDiv('mw-wire'), it.head);
     } else {
       const { lo, hi, k } = span(it.ids);
-      h += `<div class="mw-row mw-step mw-note" data-step="${it.step}" data-item="${ii}">` +
-        `<div class="mw-span" style="grid-column:${lo}/${hi + 1};--k:${k}">` +
-        `<div class="mw-notecard"><span class="mw-num">${it.step + 1}</span><span>${esc(it.text)}</span></div></div></div>`;
+      const row = parent().createDiv({ cls: ['mw-row', 'mw-step', 'mw-note'], attr: { 'data-step': it.step, 'data-item': ii } });
+      appendStepLabel(spanEl(row, lo, hi, k).createDiv('mw-notecard'), it);
     }
   });
-  return h + '</div>'.repeat(scopes.length) + '</div>';
+}
+
+// The cell a step's label sits in, stretched across the columns it joins.
+function spanEl(row, lo, hi, k) {
+  const sp = row.createDiv('mw-span');
+  sp.style.gridColumn = `${lo}/${hi + 1}`;
+  sp.style.setProperty('--k', String(k));
+  return sp;
+}
+
+function appendStepLabel(el, it) {
+  el.createSpan({ cls: 'mw-num', text: String(it.step + 1) });
+  el.createSpan({ text: it.text });
 }
 
 // ---- Map: boxes and participant cards you arrange yourself, with elbow arrows between them ----
@@ -291,20 +323,25 @@ function mergeLayout(model, saved) {
   return L;
 }
 
-function renderMap(model, L) {
-  let h = '<div class="mw-mapwrap"><div class="mw-canvas">';
+function renderMap(model, L, el) {
+  const canvas = el.createDiv('mw-mapwrap').createDiv('mw-canvas');
+  canvas.style.setProperty('--mw-node-w', NODE_W + 'px');
+  canvas.style.setProperty('--mw-node-h', NODE_H + 'px');
   model.boxes.forEach((b, bi) => {
     const r = L.boxes[boxKey(b, bi)];
     if (!r) return;
-    h += `<div class="mw-mbox ${toneFor(b.color, bi)}" data-box="${bi}" style="left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px">` +
-      `<div class="mw-mbox-label">${esc(b.label)}</div><div class="mw-mhandle" title="Drag to resize"></div></div>`;
+    const box = canvas.createDiv({ cls: ['mw-mbox', toneFor(b.color, bi)], attr: { 'data-box': bi } });
+    Object.assign(box.style, { left: r.x + 'px', top: r.y + 'px', width: r.w + 'px', height: r.h + 'px' });
+    box.createDiv({ cls: 'mw-mbox-label', text: b.label });
+    box.createDiv({ cls: 'mw-mhandle', attr: { title: 'Drag to resize' } });
   });
-  h += '<svg class="mw-medges" aria-hidden="true"></svg>';
+  canvas.createSvg('svg', { attr: { class: 'mw-medges', 'aria-hidden': 'true' } });
   model.participants.forEach((p, i) => {
     const r = L.nodes[p.id];
-    h += `<div class="mw-participant mw-mnode" data-i="${i}" style="left:${r.x}px;top:${r.y}px;width:${NODE_W}px;height:${NODE_H}px">${esc(p.label)}</div>`;
+    const node = canvas.createDiv({ cls: ['mw-participant', 'mw-mnode'], attr: { 'data-i': i }, text: p.label });
+    Object.assign(node.style, { left: r.x + 'px', top: r.y + 'px' });
   });
-  return h + '<div class="mw-mcard" hidden></div></div></div>';
+  canvas.createDiv('mw-mcard').hidden = true;
 }
 
 // An elbow route from one card to another: out of the facing sides, across, and in.
@@ -362,50 +399,43 @@ class WalkthroughView extends ItemView {
     root.empty();
     root.addClass('mw-root');
     root.setAttr('tabindex', '0');
-    root.innerHTML =
-      '<div class="mw-bar">' +
-        '<div class="mw-brand"><div class="mw-title"></div><div class="mw-readout" aria-live="polite"></div><span class="mw-warn" hidden></span></div>' +
-        '<div class="mw-controls">' +
-          '<button class="mw-btn mw-icon" data-act="prev" aria-label="Previous step (←)"></button>' +
-          '<span class="mw-counter">– / 0</span>' +
-          '<button class="mw-btn mw-icon mw-primary" data-act="next" aria-label="Next step (→)"></button>' +
-          '<button class="mw-btn" data-act="overview" aria-pressed="false" aria-label="Show all (Esc)">Show all</button>' +
-          '<div class="mw-seg" role="group" aria-label="Switch layout (M)">' +
-            '<button class="mw-btn" data-mode="sequence">Sequence</button>' +
-            '<button class="mw-btn" data-mode="map">Map</button>' +
-          '</div>' +
-        '</div>' +
-      '</div>' +
-      '<nav class="mw-tabs" role="tablist" aria-label="Diagrams" hidden></nav>' +
-      '<div class="mw-mapbar" hidden>' +
-        '<span class="mw-mapbar-tools">' +
-          '<button class="mw-btn mw-icon" data-zoom="out" aria-label="Zoom out"></button>' +
-          '<span class="mw-zoom" aria-label="Pinch or Ctrl/⌘-scroll to zoom, drag empty space to pan">100%</span>' +
-          '<button class="mw-btn mw-icon" data-zoom="in" aria-label="Zoom in"></button>' +
-          '<button class="mw-btn" data-zoom="fit">Fit</button>' +
-          '<button class="mw-btn" data-act="reset" aria-label="Drag cards and boxes to arrange them">Reset layout</button>' +
-        '</span>' +
-      '</div>' +
-      '<div class="mw-stage"><div class="mw-diagram"></div></div>' +
-      '<div class="mw-phase" aria-live="polite" hidden></div>';
+    const button = (parent, cls, attr, text) => parent.createEl('button', { cls: ['mw-btn', ...cls], attr, text });
 
-    const q = (s) => root.querySelector(s);
+    const bar = root.createDiv('mw-bar');
+    const brand = bar.createDiv('mw-brand');
+    const controls = bar.createDiv('mw-controls');
     this.els = {
-      title: q('.mw-title'), readout: q('.mw-readout'), counter: q('.mw-counter'),
-      prev: q('[data-act="prev"]'), next: q('[data-act="next"]'), overview: q('[data-act="overview"]'),
-      tabs: q('.mw-tabs'), stage: q('.mw-stage'), diagram: q('.mw-diagram'), warn: q('.mw-warn'),
+      title: brand.createDiv('mw-title'),
+      readout: brand.createDiv({ cls: 'mw-readout', attr: { 'aria-live': 'polite' } }),
+      warn: brand.createSpan('mw-warn'),
+      prev: button(controls, ['mw-icon'], { 'aria-label': 'Previous step (←)' }),
+      counter: controls.createSpan({ cls: 'mw-counter', text: '– / 0' }),
+      next: button(controls, ['mw-icon', 'mw-primary'], { 'aria-label': 'Next step (→)' }),
+      overview: button(controls, [], { 'aria-pressed': 'false', 'aria-label': 'Show all (Esc)' }, 'Show all'),
     };
+    const seg = controls.createDiv({ cls: 'mw-seg', attr: { role: 'group', 'aria-label': 'Switch layout (M)' } });
+    this.els.modes = [['sequence', 'Sequence'], ['map', 'Map']].map(([mode, text]) => button(seg, [], { 'data-mode': mode }, text));
+    this.els.tabs = root.createEl('nav', { cls: 'mw-tabs', attr: { role: 'tablist', 'aria-label': 'Diagrams' } });
+
+    this.els.mapbar = root.createDiv('mw-mapbar');
+    const tools = this.els.mapbar.createSpan('mw-mapbar-tools');
+    const zoomOut = button(tools, ['mw-icon'], { 'data-zoom': 'out', 'aria-label': 'Zoom out' });
+    this.els.zoomLabel = tools.createSpan({ cls: 'mw-zoom', text: '100%', attr: { 'aria-label': 'Pinch or Ctrl/⌘-scroll to zoom, drag empty space to pan' } });
+    const zoomIn = button(tools, ['mw-icon'], { 'data-zoom': 'in', 'aria-label': 'Zoom in' });
+    const fit = button(tools, [], { 'data-zoom': 'fit' }, 'Fit');
+    const reset = button(tools, [], { 'aria-label': 'Drag cards and boxes to arrange them' }, 'Reset layout');
+
+    this.els.stage = root.createDiv('mw-stage');
+    this.els.diagram = this.els.stage.createDiv('mw-diagram');
+    this.els.phase = root.createDiv({ cls: 'mw-phase', attr: { 'aria-live': 'polite' } });
+    this.els.warn.hidden = this.els.tabs.hidden = this.els.mapbar.hidden = this.els.phase.hidden = true;
+
     setIcon(this.els.prev, 'chevron-left');
     setIcon(this.els.next, 'chevron-right');
-
-    this.els.modes = root.querySelectorAll('[data-mode]');
-    this.els.mapbar = q('.mw-mapbar');
-    this.els.phase = q('.mw-phase');
-    this.els.zoomLabel = q('.mw-zoom');
-    setIcon(q('[data-zoom="out"]'), 'minus');
-    setIcon(q('[data-zoom="in"]'), 'plus');
+    setIcon(zoomOut, 'minus');
+    setIcon(zoomIn, 'plus');
     this.els.modes.forEach((b) => this.registerDomEvent(b, 'click', () => this.setMode(b.dataset.mode)));
-    root.querySelectorAll('[data-zoom]').forEach((b) => this.registerDomEvent(b, 'click', () => {
+    [zoomOut, zoomIn, fit].forEach((b) => this.registerDomEvent(b, 'click', () => {
       const z = b.dataset.zoom;
       if (z === 'fit') { this.setZoom(this.fitZoom()); this.saveViewSoon(); return; }
       const r = this.els.stage.getBoundingClientRect();
@@ -421,7 +451,7 @@ class WalkthroughView extends ItemView {
       this.zoomAt(this.zoom * Math.exp(-delta * 0.009), e.clientX, e.clientY);
     }, { passive: false });
     this.registerDomEvent(this.els.stage, 'scroll', () => { if (this.mode === 'map' && this.model) this.saveViewSoon(); });
-    this.registerDomEvent(q('[data-act="reset"]'), 'click', () => this.resetLayout());
+    this.registerDomEvent(reset, 'click', () => this.resetLayout());
     this.registerDomEvent(this.els.diagram, 'pointerdown', (e) => this.dragStart(e));
     this.registerDomEvent(this.els.diagram, 'pointermove', (e) => this.dragMove(e));
     this.registerDomEvent(this.els.diagram, 'pointerup', (e) => this.dragEnd(e));
@@ -531,7 +561,8 @@ class WalkthroughView extends ItemView {
     this.els.tabs.hidden = true;
     this.els.warn.hidden = true;
     this.els.diagram.style.setProperty('--n', 1);
-    this.els.diagram.innerHTML = `<div class="mw-empty">${esc(message)}</div>`;
+    this.els.diagram.empty();
+    this.els.diagram.createDiv({ cls: 'mw-empty', text: message });
     this.els.readout.textContent = '';
     this.els.phase.hidden = true;
     this.els.counter.textContent = '– / 0';
@@ -541,9 +572,13 @@ class WalkthroughView extends ItemView {
   renderTabs() {
     const tabs = this.els.tabs;
     tabs.hidden = this.diagrams.length < 2;
-    tabs.innerHTML = this.diagrams.map((d, i) =>
-      `<button class="mw-tab" role="tab" data-tab="${i}" aria-selected="${i === this.active}"${i < 9 ? ` aria-label="${esc(d.name)} (${i + 1})"` : ''}>${esc(d.name)}<span class="mw-count">${d.model.steps.length}</span></button>`
-    ).join('');
+    tabs.empty();
+    this.diagrams.forEach((d, i) => {
+      const attr = { role: 'tab', 'data-tab': i, 'aria-selected': String(i === this.active) };
+      if (i < 9) attr['aria-label'] = `${d.name} (${i + 1})`;
+      const tab = tabs.createEl('button', { cls: 'mw-tab', attr, text: d.name });
+      tab.createSpan({ cls: 'mw-count', text: String(d.model.steps.length) });
+    });
   }
 
   show(i, keepScroll) {
@@ -553,13 +588,14 @@ class WalkthroughView extends ItemView {
     this.model = this.diagrams[i].model;
     this.cur = this.diagrams[i].cur;
     this.els.overview.disabled = false;
+    this.els.diagram.empty();
     if (!this.model.participants.length) {
-      this.els.diagram.innerHTML = '<div class="mw-empty">This diagram has no participants yet.</div>';
+      this.els.diagram.createDiv({ cls: 'mw-empty', text: 'This diagram has no participants yet.' });
     } else {
-      this.els.diagram.style.setProperty('--n', this.model.participants.length);
+      this.els.diagram.style.setProperty('--n', String(this.model.participants.length));
       this.els.diagram.classList.toggle('mw-map-mode', this.mode === 'map');
       if (this.mode === 'map') this.renderMapView(keepScroll);
-      else this.els.diagram.innerHTML = renderDiagram(this.model);
+      else renderDiagram(this.model, this.els.diagram);
     }
     this.syncModeButtons();
     this.els.tabs.querySelectorAll('[data-tab]').forEach((t) => t.setAttribute('aria-selected', String(+t.dataset.tab === i)));
@@ -673,14 +709,12 @@ class WalkthroughView extends ItemView {
   // the outer one. Overlapping by a pixel per level keeps slivers of the rows from showing between.
   stackHeadings() {
     this.els.diagram.querySelectorAll('.mw-scope > .mw-row:first-child').forEach((row) => {
-      let offset = 0, depth = 0;
+      let offset = 0;
       for (let s = row.parentElement.parentElement.closest('.mw-scope'); s; s = s.parentElement.closest('.mw-scope')) {
         offset += Math.floor(s.firstElementChild.getBoundingClientRect().height) - 1;
-        depth++;
       }
       row.dataset.stack = offset;
       row.style.top = `calc(var(--head-top, 0px) + ${offset}px)`;
-      row.style.zIndex = depth ? 3 : 4;
     });
   }
 
@@ -702,7 +736,8 @@ class WalkthroughView extends ItemView {
     const total = model.steps.length;
     const on = this.cur >= 0 && this.cur < total;
     // While stepping, the phase and the step already show on the diagram, so the toolbar keeps to the counter.
-    this.els.readout.innerHTML = on ? '' : `<span class="mw-what">${total} steps · ${model.participants.length} participants</span>`;
+    this.els.readout.empty();
+    if (!on) this.els.readout.createSpan({ cls: 'mw-what', text: `${total} steps · ${model.participants.length} participants` });
 
     this.els.counter.textContent = on ? `${this.cur + 1} / ${total}` : `– / ${total}`;
     this.els.prev.disabled = !total || this.cur <= 0;
@@ -722,7 +757,7 @@ class WalkthroughView extends ItemView {
     const view = keepView ? null : this.plugin.settings.views[this.layoutKey()];
     if (!keepView) this.zoom = view ? view.zoom : null;
     this.layout = mergeLayout(this.model, this.plugin.settings.layouts[this.layoutKey()]);
-    this.els.diagram.innerHTML = renderMap(this.model, this.layout);
+    renderMap(this.model, this.layout, this.els.diagram);
     this.mapPairs = new Map();
     this.model.steps.forEach((st) => {
       if (st.type !== 'msg') return;
@@ -799,7 +834,15 @@ class WalkthroughView extends ItemView {
     const svg = this.els.diagram.querySelector('.mw-medges');
     if (!svg) return;
     this.edgeMid = new Map();
-    let paths = '';
+    svg.empty();
+    svg.setAttribute('width', String(this.canvasW));
+    svg.setAttribute('height', String(this.canvasH));
+    const defs = svg.createSvg('defs');
+    const marker = (id, cls) => defs
+      .createSvg('marker', { attr: { id, viewBox: '0 0 10 10', refX: '9', refY: '5', markerUnits: 'userSpaceOnUse', markerWidth: '9', markerHeight: '9', orient: 'auto' } })
+      .createSvg('path', { attr: { class: cls, d: 'M0 0 L10 5 L0 10 Z' } });
+    marker(`mw-tip-${this.uid}`, 'mw-marker');
+    marker(`mw-tip-on-${this.uid}`, 'mw-marker-on');
     this.mapPairs.forEach((pair, key) => {
       const A = this.nodeRect(pair.a);
       let geo;
@@ -811,13 +854,10 @@ class WalkthroughView extends ItemView {
         geo = route(A, this.nodeRect(pair.b), off);
       }
       this.edgeMid.set(key, geo.mid);
-      paths += `<path class="mw-medge${pair.dashed ? ' mw-dashed' : ''}" data-edge="${key}" d="${geo.d}" marker-end="url(#mw-tip-${this.uid})"/>`;
+      svg.createSvg('path', {
+        attr: { class: `mw-medge${pair.dashed ? ' mw-dashed' : ''}`, 'data-edge': key, d: geo.d, 'marker-end': `url(#mw-tip-${this.uid})` },
+      });
     });
-    const marker = (id, cls) =>
-      `<marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path class="${cls}" d="M0 0 L10 5 L0 10 Z"/></marker>`;
-    svg.setAttribute('width', String(this.canvasW));
-    svg.setAttribute('height', String(this.canvasH));
-    svg.innerHTML = `<defs>${marker(`mw-tip-${this.uid}`, 'mw-marker')}${marker(`mw-tip-on-${this.uid}`, 'mw-marker-on')}</defs>${paths}`;
   }
 
   applyMap() {
@@ -827,14 +867,12 @@ class WalkthroughView extends ItemView {
     dg.classList.toggle('mw-mapping', on);
     // The phase name, then any alt/opt/loop it is in, the way the sequence headings show them.
     const st = on ? model.steps[this.cur] : null;
-    const parts = [];
-    if (st && st.phase != null) parts.push(`<span class="mw-phase-name">${esc(model.items[st.phase].text)}</span>`);
-    if (st) st.blocks.forEach((bi) => {
-      const b = model.items[bi];
-      parts.push(`<span class="mw-phase-block"><span class="mw-kind">${esc(b.kind)}</span>${b.text ? ' ' + esc(b.text) : ''}</span>`);
-    });
-    this.els.phase.innerHTML = parts.join('<span class="mw-phase-sep">›</span>');
-    this.els.phase.hidden = !parts.length;
+    const phase = this.els.phase;
+    phase.empty();
+    const sep = () => { if (phase.childElementCount) phase.createSpan({ cls: 'mw-phase-sep', text: '›' }); };
+    if (st && st.phase != null) phase.createSpan({ cls: 'mw-phase-name', text: model.items[st.phase].text });
+    if (st) st.blocks.forEach((bi) => { sep(); appendBlockName(phase.createSpan('mw-phase-block'), model.items[bi], ' '); });
+    phase.hidden = !phase.childElementCount;
     const card = dg.querySelector('.mw-mcard');
     if (!card) return;
     if (!on) { card.hidden = true; return; }
@@ -870,12 +908,15 @@ class WalkthroughView extends ItemView {
     card.hidden = false;
     // The same numbered label the sequence uses, placed on the arrow.
     // Any alt/opt/loop the step sits in rides on top of its box as a tab, apart from the step's own text.
-    const cond = st.blocks.map((bi) => {
-      const b = model.items[bi];
-      return `<span class="mw-kind">${esc(b.kind)}</span>${b.text ? ' ' + esc(b.text) : ''}`;
-    }).join(' › ');
-    card.innerHTML = (cond ? `<div class="mw-cond">${cond}</div>` : '') +
-      `<div class="mw-label mw-label-on"><span class="mw-num">${this.cur + 1}</span><span>${esc(st.text)}</span></div>`;
+    card.empty();
+    if (st.blocks.length) {
+      const cond = card.createDiv('mw-cond');
+      st.blocks.forEach((bi, k) => {
+        if (k) cond.appendText(' › ');
+        appendBlockName(cond, model.items[bi], ' ');
+      });
+    }
+    appendStepLabel(card.createDiv({ cls: ['mw-label', 'mw-label-on'] }), st);
     this.placeCard(card, at);
   }
 
@@ -1057,7 +1098,8 @@ module.exports = class MermaidWalkthroughPlugin extends Plugin {
       leaf = this.app.workspace.getLeaf('split', 'vertical');
       await leaf.setViewState({ type: VIEW_TYPE, active: true });
     }
-    this.app.workspace.revealLeaf(leaf);
+    // Since Obsidian 1.7.2 a restored leaf may still be deferred; revealing it loads the real view.
+    await this.app.workspace.revealLeaf(leaf);
     if (file && leaf.view instanceof WalkthroughView) await leaf.view.setFile(file);
     leaf.view.contentEl.focus();
   }
