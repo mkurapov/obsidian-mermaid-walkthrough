@@ -4,8 +4,18 @@ An Obsidian plugin for stepping through the Mermaid sequence diagrams in a note 
 
 It has two views:
 
-- **Sequence**: the diagram as a list of steps under a header of participants that stays pinned while you scroll. Phase headings pin under the participants while their steps scroll past, with any `alt`, `opt` or `loop` heading pinned just below. The current step moves to the top, so you can always see who is involved.
-- **Map**: the participants and their boxes as cards on a canvas, with elbow arrows between them. The current step's label sits on its arrow, with any `alt`, `opt` or `loop` it belongs to in a tab on top. The phase it is in shows in a box at the bottom left of the canvas. Drag cards and boxes into whatever layout you want. The layout is saved per diagram.
+### Sequence
+The diagram as a list of steps under a header of participants that stays pinned while you scroll. Phase headings pin under the participants while their steps scroll past, with any `alt`, `opt` or `loop` heading pinned just below. The current step moves to the top, so you can always see who is involved.
+
+
+<img width="1624" height="1056" alt="Screenshot 2026-10-23 at 14 40 41" src="https://github.com/user-attachments/assets/01502398-a698-4d12-bb73-56e99d883565" />
+
+
+### Map 
+The participants and their boxes as cards on a canvas, with elbow arrows between them. The current step's label sits on its arrow, with any `alt`, `opt` or `loop` it belongs to in a tab on top. The phase it is in shows in a box at the bottom left of the canvas. Drag cards and boxes into whatever layout you want. The layout is saved per diagram.
+
+<img width="1624" height="1056" alt="Screenshot 2026-10-23 at 14 41 54" src="https://github.com/user-attachments/assets/48a98fba-463f-47a4-8203-3da41d19c9d3" />
+
 
 ## Usage
 
