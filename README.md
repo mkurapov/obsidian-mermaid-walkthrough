@@ -70,18 +70,6 @@ sequenceDiagram
 
 `box` groups become the coloured participant groups in both views. `loop`, `alt`, `opt`, `par`, `critical` and `break` blocks show as labelled sections inside their phase. Other notes are steps like any message.
 
-## Installation
-
-### With BRAT
-
-1. Install [BRAT](https://github.com/TfTHacker/obsidian42-brat) from Community plugins.
-2. Run **BRAT: Add a beta plugin for testing** and enter `mkurapov/obsidian-mermaid-walkthrough`.
-3. Enable **Mermaid Walkthrough** in Settings → Community plugins.
-
-### Manually
-
-Download `main.js`, `manifest.json` and `styles.css` from the [latest release](https://github.com/mkurapov/obsidian-mermaid-walkthrough/releases/latest) into `<vault>/.obsidian/plugins/mermaid-walkthrough/`, then enable the plugin.
-
 ## Development
 
 The plugin is plain JavaScript with no build step. Symlink the repo into a vault and edit in place:
