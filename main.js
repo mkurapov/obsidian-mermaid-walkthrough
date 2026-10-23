@@ -140,18 +140,26 @@ function parse(src) {
 }
 
 // Each ```mermaid block holding a sequenceDiagram becomes a tab, named by the heading above it.
+// Every fenced block is tracked, so a `# comment` inside a bash or python block isn't read as a heading.
 function splitDiagrams(md) {
   const out = [];
-  let heading = null, buf = null;
+  let heading = null, fence = null; // fence: { mark, buf }, where buf collects lines only for mermaid
   md.replace(/\r/g, '').split('\n').forEach((line) => {
     const t = line.trim();
-    if (buf) {
-      if (t.startsWith('```')) {
-        if (/^\s*sequenceDiagram\b/m.test(buf.join('\n'))) out.push({ name: heading, src: buf.join('\n') });
-        buf = null;
-        heading = null;
-      } else buf.push(line);
-    } else if (/^```\s*mermaid\b/i.test(t)) buf = [];
+    if (fence) {
+      // A fence closes on a run of the same character at least as long as the one that opened it.
+      if (t.startsWith(fence.mark) && new RegExp(`^${fence.mark[0]}+$`).test(t)) {
+        if (fence.buf) {
+          const src = fence.buf.join('\n');
+          if (/^\s*sequenceDiagram\b/m.test(src)) out.push({ name: heading, src });
+          heading = null;
+        }
+        fence = null;
+      } else if (fence.buf) fence.buf.push(line);
+      return;
+    }
+    const open = t.match(/^(`{3,}|~{3,})\s*(\S*)/);
+    if (open) fence = { mark: open[1], buf: /^mermaid$/i.test(open[2]) ? [] : null };
     else if (/^#{1,6}\s+/.test(t)) heading = t.replace(/^#{1,6}\s+/, '');
   });
   return out.map((d, i) => ({ ...d, name: d.name || `Diagram ${i + 1}` }));
