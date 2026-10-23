@@ -97,19 +97,46 @@ function parse(src) {
     m.skipped.push(`line ${i + 1}: ${line}`);
   });
 
-  // Every message and note is a step. Each step remembers the innermost rect or block around it.
-  const open = [];
+  // A note that stretches from the first participant to the last heads a sub-flow, like a rect.
+  // It runs until the next such note in the same block, or until that block ends.
+  const last = m.participants.length - 1;
+  const spansAll = (it) => {
+    if (it.type !== 'note' || last < 1) return false;
+    const at = it.ids.map((id) => m.idx.get(id));
+    return Math.min(...at) === 0 && Math.max(...at) === last;
+  };
+
+  // Every message and other note is a step. Each step remembers the innermost heading around it,
+  // and each heading remembers the item that closes it (`close`).
+  const open = []; // {ii, note}: open rects, blocks and note-headed sub-flows, innermost last
+  let at = 0;
+  const pop = () => { const o = open.pop(); if (o) m.items[o.ii].close = at; };
+  const closeNotes = () => { while (open.length && open[open.length - 1].note) pop(); };
   m.items.forEach((it, ii) => {
-    if (it.type === 'end') { open.pop(); return; }
+    at = ii;
+    if (it.type === 'end') { closeNotes(); pop(); return; }
+    if (spansAll(it)) {
+      Object.assign(it, { type: 'section', note: true });
+      closeNotes();
+      open.push({ ii, note: true });
+      return;
+    }
     if (it.type === 'section' || it.type === 'block') {
-      if (it.branch) open.pop(); // else/and/option replaces the branch it follows
-      open.push(ii);
+      if (it.branch) { closeNotes(); pop(); } // else/and/option replaces the branch it follows
+      open.push({ ii, note: false });
       return;
     }
     it.step = m.steps.length;
-    it.section = open.length ? open[open.length - 1] : null;
+    it.section = open.length ? open[open.length - 1].ii : null;
+    // The innermost rect or spanning note around it, even when an alt or loop sits in between.
+    const pi = open.map((o) => m.items[o.ii].type).lastIndexOf('section');
+    it.phase = pi >= 0 ? open[pi].ii : null;
+    // The alt, opt, loop and other blocks it sits in within that phase, outermost first.
+    it.blocks = open.slice(pi + 1).map((o) => o.ii);
     m.steps.push(it);
   });
+  at = m.items.length;
+  while (open.length) pop();
   return m;
 }
 
@@ -186,7 +213,12 @@ function renderDiagram(model) {
   P.forEach((_, i) => { h += `<div class="ss-ll" data-i="${i}"></div>`; });
   h += '</div>';
 
+  // Each heading and the rows under it share a wrapper, so the pinned heading lets go where its
+  // phase or block ends instead of lingering over the steps that follow.
+  const scopes = []; // close index of each open wrapper, innermost last
   model.items.forEach((it, ii) => {
+    while (scopes.length && scopes[scopes.length - 1] <= ii) { scopes.pop(); h += '</div>'; }
+    if (it.type === 'section' || it.type === 'block') { scopes.push(it.close); h += '<div class="ss-scope">'; }
     if (it.type === 'end') return;
     if (it.type === 'section') {
       h += `<div class="ss-row ss-section" data-item="${ii}"><div class="ss-band" style="grid-column:1/-1">${esc(it.text)}</div></div>`;
@@ -213,7 +245,7 @@ function renderDiagram(model) {
         `<div class="ss-notecard"><span class="ss-num">${it.step + 1}</span><span>${esc(it.text)}</span></div></div></div>`;
     }
   });
-  return h + '</div>';
+  return h + '</div>'.repeat(scopes.length) + '</div>';
 }
 
 // ---- Map: boxes and participant cards you arrange yourself, with elbow arrows between them ----
@@ -318,6 +350,7 @@ class StepperView extends ItemView {
     this.zoom = null; // map zoom; null means fit to the pane on first show
     this.uid = Math.random().toString(36).slice(2, 8); // keeps SVG marker ids unique per pane
     this.reloadSoon = debounce(() => this.reload(true), 250, true);
+    this.saveViewSoon = debounce(() => this.saveView(), 400, true);
   }
 
   getViewType() { return VIEW_TYPE; }
@@ -331,13 +364,13 @@ class StepperView extends ItemView {
     root.setAttr('tabindex', '0');
     root.innerHTML =
       '<div class="ss-bar">' +
-        '<div class="ss-brand"><div class="ss-title"></div><div class="ss-readout" aria-live="polite"></div></div>' +
+        '<div class="ss-brand"><div class="ss-title"></div><div class="ss-readout" aria-live="polite"></div><span class="ss-warn" hidden></span></div>' +
         '<div class="ss-controls">' +
-          '<button class="ss-btn ss-icon" data-act="prev" aria-label="Previous step"></button>' +
+          '<button class="ss-btn ss-icon" data-act="prev" aria-label="Previous step (←)"></button>' +
           '<span class="ss-counter">– / 0</span>' +
-          '<button class="ss-btn ss-icon ss-primary" data-act="next" aria-label="Next step"></button>' +
-          '<button class="ss-btn" data-act="overview" aria-pressed="false">Show all</button>' +
-          '<div class="ss-seg" role="group" aria-label="Layout">' +
+          '<button class="ss-btn ss-icon ss-primary" data-act="next" aria-label="Next step (→)"></button>' +
+          '<button class="ss-btn" data-act="overview" aria-pressed="false" aria-label="Show all (Esc)">Show all</button>' +
+          '<div class="ss-seg" role="group" aria-label="Switch layout (M)">' +
             '<button class="ss-btn" data-mode="sequence">Sequence</button>' +
             '<button class="ss-btn" data-mode="map">Map</button>' +
           '</div>' +
@@ -345,17 +378,16 @@ class StepperView extends ItemView {
       '</div>' +
       '<nav class="ss-tabs" role="tablist" aria-label="Diagrams" hidden></nav>' +
       '<div class="ss-mapbar" hidden>' +
-        '<span>Drag cards and boxes to arrange them, or empty space to pan. Pinch or Ctrl/⌘-scroll to zoom.</span>' +
+        '<span class="ss-phase" aria-live="polite" hidden></span>' +
         '<span class="ss-mapbar-tools">' +
           '<button class="ss-btn ss-icon" data-zoom="out" aria-label="Zoom out"></button>' +
-          '<span class="ss-zoom">100%</span>' +
+          '<span class="ss-zoom" aria-label="Pinch or Ctrl/⌘-scroll to zoom, drag empty space to pan">100%</span>' +
           '<button class="ss-btn ss-icon" data-zoom="in" aria-label="Zoom in"></button>' +
           '<button class="ss-btn" data-zoom="fit">Fit</button>' +
-          '<button class="ss-btn" data-act="reset">Reset layout</button>' +
+          '<button class="ss-btn" data-act="reset" aria-label="Drag cards and boxes to arrange them">Reset layout</button>' +
         '</span>' +
       '</div>' +
-      '<div class="ss-stage"><div class="ss-diagram"></div></div>' +
-      '<div class="ss-foot"><kbd>←</kbd> <kbd>→</kbd> step · <kbd>Esc</kbd> show all · <kbd>1</kbd>–<kbd>9</kbd> switch diagram · <kbd>M</kbd> sequence or map · click a step to jump to it<span class="ss-warn" hidden></span></div>';
+      '<div class="ss-stage"><div class="ss-diagram"></div></div>';
 
     const q = (s) => root.querySelector(s);
     this.els = {
@@ -368,13 +400,14 @@ class StepperView extends ItemView {
 
     this.els.modes = root.querySelectorAll('[data-mode]');
     this.els.mapbar = q('.ss-mapbar');
+    this.els.phase = q('.ss-phase');
     this.els.zoomLabel = q('.ss-zoom');
     setIcon(q('[data-zoom="out"]'), 'minus');
     setIcon(q('[data-zoom="in"]'), 'plus');
     this.els.modes.forEach((b) => this.registerDomEvent(b, 'click', () => this.setMode(b.dataset.mode)));
     root.querySelectorAll('[data-zoom]').forEach((b) => this.registerDomEvent(b, 'click', () => {
       const z = b.dataset.zoom;
-      if (z === 'fit') { this.setZoom(this.fitZoom()); return; }
+      if (z === 'fit') { this.setZoom(this.fitZoom()); this.saveViewSoon(); return; }
       const r = this.els.stage.getBoundingClientRect();
       this.zoomAt((this.zoom || 1) * (z === 'in' ? 1.2 : 1 / 1.2), r.left + r.width / 2, r.top + r.height / 2);
     }));
@@ -387,6 +420,7 @@ class StepperView extends ItemView {
       const delta = Math.max(-25, Math.min(25, e.deltaMode === 1 ? e.deltaY * 5 : e.deltaY));
       this.zoomAt(this.zoom * Math.exp(-delta * 0.009), e.clientX, e.clientY);
     }, { passive: false });
+    this.registerDomEvent(this.els.stage, 'scroll', () => { if (this.mode === 'map' && this.model) this.saveViewSoon(); });
     this.registerDomEvent(q('[data-act="reset"]'), 'click', () => this.resetLayout());
     this.registerDomEvent(this.els.diagram, 'pointerdown', (e) => this.dragStart(e));
     this.registerDomEvent(this.els.diagram, 'pointermove', (e) => this.dragMove(e));
@@ -498,6 +532,7 @@ class StepperView extends ItemView {
     this.els.diagram.style.setProperty('--n', 1);
     this.els.diagram.innerHTML = `<div class="ss-empty">${esc(message)}</div>`;
     this.els.readout.textContent = '';
+    this.els.phase.hidden = true;
     this.els.counter.textContent = '– / 0';
     this.els.prev.disabled = this.els.next.disabled = this.els.overview.disabled = true;
   }
@@ -506,7 +541,7 @@ class StepperView extends ItemView {
     const tabs = this.els.tabs;
     tabs.hidden = this.diagrams.length < 2;
     tabs.innerHTML = this.diagrams.map((d, i) =>
-      `<button class="ss-tab" role="tab" data-tab="${i}" aria-selected="${i === this.active}">${esc(d.name)}<span class="ss-count">${d.model.steps.length}</span></button>`
+      `<button class="ss-tab" role="tab" data-tab="${i}" aria-selected="${i === this.active}"${i < 9 ? ` aria-label="${esc(d.name)} (${i + 1})"` : ''}>${esc(d.name)}<span class="ss-count">${d.model.steps.length}</span></button>`
     ).join('');
   }
 
@@ -522,12 +557,13 @@ class StepperView extends ItemView {
     } else {
       this.els.diagram.style.setProperty('--n', this.model.participants.length);
       this.els.diagram.classList.toggle('ss-map-mode', this.mode === 'map');
-      if (this.mode === 'map') this.renderMapView();
+      if (this.mode === 'map') this.renderMapView(keepScroll);
       else this.els.diagram.innerHTML = renderDiagram(this.model);
     }
     this.syncModeButtons();
     this.els.tabs.querySelectorAll('[data-tab]').forEach((t) => t.setAttribute('aria-selected', String(+t.dataset.tab === i)));
-    if (keepScroll || this.mode === 'map') { stage.scrollTop = top; this.apply(false); }
+    if (this.mode === 'map') this.apply(false);
+    else if (keepScroll) { stage.scrollTop = top; this.apply(false); }
     else { stage.scrollTop = 0; this.apply(this.cur > 0 ? 'center' : false); }
   }
 
@@ -587,7 +623,10 @@ class StepperView extends ItemView {
 
     const head = dg.querySelector('.ss-head');
     dg.style.setProperty('--head-h', head ? head.offsetHeight + 16 + 'px' : '0px');
-    dg.style.setProperty('--head-top', head ? head.offsetHeight + 'px' : '0px');
+    // Pin phase headings a pixel under the header's bottom edge, rounding down, so no sliver of the
+    // steps scrolling past shows between them at fractional heights or zoom levels.
+    dg.style.setProperty('--head-top', head ? Math.max(0, Math.floor(head.getBoundingClientRect().height) - 1) + 'px' : '0px');
+    this.stackHeadings();
 
     const hl = dg.querySelector('.ss-hl');
     if (on) {
@@ -628,6 +667,22 @@ class StepperView extends ItemView {
     this.applyReadout();
   }
 
+  // Pins each heading under the ones around it (an alt under its phase, say) instead of over them.
+  // An inner heading sits lower in the stack, so when its own rows run out it slides away beneath
+  // the outer one. Overlapping by a pixel per level keeps slivers of the rows from showing between.
+  stackHeadings() {
+    this.els.diagram.querySelectorAll('.ss-scope > .ss-row:first-child').forEach((row) => {
+      let offset = 0, depth = 0;
+      for (let s = row.parentElement.parentElement.closest('.ss-scope'); s; s = s.parentElement.closest('.ss-scope')) {
+        offset += Math.floor(s.firstElementChild.getBoundingClientRect().height) - 1;
+        depth++;
+      }
+      row.dataset.stack = offset;
+      row.style.top = `calc(var(--head-top, 0px) + ${offset}px)`;
+      row.style.zIndex = depth ? 3 : 4;
+    });
+  }
+
   // Puts the current step right under the pinned participant header (and its pinned phase heading),
   // so the participants it involves sit as close to it as possible.
   scrollStepToTop(row, st) {
@@ -635,7 +690,7 @@ class StepperView extends ItemView {
     const dg = this.els.diagram;
     const head = dg.querySelector('.ss-head');
     const sec = st.section != null ? dg.querySelector(`[data-item="${st.section}"]`) : null;
-    const pinned = (head ? head.offsetHeight : 0) + (sec ? sec.offsetHeight : 0) + 4;
+    const pinned = (head ? head.offsetHeight : 0) + (sec ? +sec.dataset.stack + sec.offsetHeight : 0) + 4;
     const top = stage.scrollTop + row.getBoundingClientRect().top - stage.getBoundingClientRect().top - pinned;
     stage.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
   }
@@ -645,22 +700,8 @@ class StepperView extends ItemView {
     const model = this.model;
     const total = model.steps.length;
     const on = this.cur >= 0 && this.cur < total;
-    const readout = this.els.readout;
-    if (on) {
-      const st = model.steps[this.cur];
-      let secText = '';
-      if (st.section != null) {
-        const sec = model.items[st.section];
-        secText = sec.type === 'block' ? `${sec.kind} ${sec.text}`.trim() : sec.text;
-      }
-      const ids = st.type === 'msg' ? [st.from, st.to] : st.ids;
-      const who = st.type === 'msg'
-        ? (st.from === st.to ? this.participantName(st.from) : `${this.participantName(st.from)} → ${this.participantName(st.to)}`)
-        : 'Note · ' + ids.map((id) => this.participantName(id)).join(', ');
-      readout.innerHTML = (secText ? `<span class="ss-sec">${esc(secText)}</span>` : '') + `<span class="ss-what">${esc(who)}</span>`;
-    } else {
-      readout.innerHTML = `<span class="ss-what">${total} steps · ${model.participants.length} participants</span>`;
-    }
+    // While stepping, the phase and the step already show on the diagram, so the toolbar keeps to the counter.
+    this.els.readout.innerHTML = on ? '' : `<span class="ss-what">${total} steps · ${model.participants.length} participants</span>`;
 
     this.els.counter.textContent = on ? `${this.cur + 1} / ${total}` : `– / ${total}`;
     this.els.prev.disabled = !total || this.cur <= 0;
@@ -672,7 +713,13 @@ class StepperView extends ItemView {
 
   layoutKey() { return `${this.file ? this.file.path : ''}::${this.diagrams[this.active].name}`; }
 
-  renderMapView() {
+  // keepView holds the current zoom and scroll (a re-render after an edit); otherwise the diagram
+  // opens where it was last left, or fitted to the pane the first time.
+  renderMapView(keepView) {
+    const stage = this.els.stage;
+    const left = stage.scrollLeft, top = stage.scrollTop;
+    const view = keepView ? null : this.plugin.settings.views[this.layoutKey()];
+    if (!keepView) this.zoom = view ? view.zoom : null;
     this.layout = mergeLayout(this.model, this.plugin.settings.layouts[this.layoutKey()]);
     this.els.diagram.innerHTML = renderMap(this.model, this.layout);
     this.mapPairs = new Map();
@@ -687,6 +734,19 @@ class StepperView extends ItemView {
     this.canvasW = this.canvasH = 0;
     this.setZoom(this.zoom == null ? this.fitZoom() : this.zoom);
     this.drawMapEdges();
+    stage.scrollLeft = keepView ? left : view ? view.x : 0;
+    stage.scrollTop = keepView ? top : view ? view.y : 0;
+  }
+
+  // Remembers the map's zoom and scroll position for this diagram.
+  saveView() {
+    if (this.mode !== 'map' || !this.model) return;
+    const stage = this.els.stage;
+    const view = { zoom: Math.round(this.zoom * 1000) / 1000, x: Math.round(stage.scrollLeft), y: Math.round(stage.scrollTop) };
+    const views = this.plugin.settings.views, key = this.layoutKey(), old = views[key];
+    if (old && old.zoom === view.zoom && old.x === view.x && old.y === view.y) return;
+    views[key] = view;
+    this.plugin.saveSettings();
   }
 
   nodeRect(i) {
@@ -764,11 +824,20 @@ class StepperView extends ItemView {
     const model = this.model;
     const on = this.cur >= 0 && this.cur < model.steps.length;
     dg.classList.toggle('ss-mapping', on);
+    // The phase name, then any alt/opt/loop it is in, the way the sequence headings show them.
+    const st = on ? model.steps[this.cur] : null;
+    const parts = [];
+    if (st && st.phase != null) parts.push(`<span class="ss-phase-name">${esc(model.items[st.phase].text)}</span>`);
+    if (st) st.blocks.forEach((bi) => {
+      const b = model.items[bi];
+      parts.push(`<span class="ss-phase-block"><span class="ss-kind">${esc(b.kind)}</span>${b.text ? ' ' + esc(b.text) : ''}</span>`);
+    });
+    this.els.phase.innerHTML = parts.join('<span class="ss-phase-sep">›</span>');
+    this.els.phase.hidden = !parts.length;
     const card = dg.querySelector('.ss-mcard');
     if (!card) return;
     if (!on) { card.hidden = true; return; }
 
-    const st = model.steps[this.cur];
     const ids = st.type === 'msg' ? [st.from, st.to] : st.ids;
     ids.forEach((id) => dg.querySelector(`.ss-mnode[data-i="${model.idx.get(id)}"]`).classList.add('ss-on'));
     if (st.type === 'msg') {
@@ -799,7 +868,13 @@ class StepperView extends ItemView {
     }
     card.hidden = false;
     // The same numbered label the sequence uses, placed on the arrow.
-    card.innerHTML = `<div class="ss-label ss-label-on"><span class="ss-num">${this.cur + 1}</span><span>${esc(st.text)}</span></div>`;
+    // Any alt/opt/loop the step sits in rides on top of its box as a tab, apart from the step's own text.
+    const cond = st.blocks.map((bi) => {
+      const b = model.items[bi];
+      return `<span class="ss-kind">${esc(b.kind)}</span>${b.text ? ' ' + esc(b.text) : ''}`;
+    }).join(' › ');
+    card.innerHTML = (cond ? `<div class="ss-cond">${cond}</div>` : '') +
+      `<div class="ss-label ss-label-on"><span class="ss-num">${this.cur + 1}</span><span>${esc(st.text)}</span></div>`;
     this.placeCard(card, at);
   }
 
@@ -841,6 +916,7 @@ class StepperView extends ItemView {
     this.setZoom(z);
     stage.scrollLeft = px * this.zoom - mx;
     stage.scrollTop = py * this.zoom - my;
+    this.saveViewSoon();
   }
 
   dragStart(e) {
@@ -929,8 +1005,8 @@ class StepperView extends ItemView {
   resetLayout() {
     if (!this.model) return;
     delete this.plugin.settings.layouts[this.layoutKey()];
+    delete this.plugin.settings.views[this.layoutKey()];
     this.plugin.saveSettings();
-    this.zoom = null;
     this.show(this.active, false);
   }
 
@@ -944,7 +1020,7 @@ class StepperView extends ItemView {
 
 module.exports = class MermaidStepperPlugin extends Plugin {
   async onload() {
-    this.settings = Object.assign({ mode: 'sequence', layouts: {} }, await this.loadData());
+    this.settings = Object.assign({ mode: 'sequence', layouts: {}, views: {} }, await this.loadData());
     this.lastFile = this.app.workspace.getActiveFile();
     this.registerView(VIEW_TYPE, (leaf) => new StepperView(leaf, this));
 
