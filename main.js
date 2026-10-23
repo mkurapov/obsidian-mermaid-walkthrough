@@ -355,7 +355,7 @@ class WalkthroughView extends ItemView {
 
   getViewType() { return VIEW_TYPE; }
   getDisplayText() { return this.file ? `Steps: ${this.file.basename}` : 'Mermaid Walkthrough'; }
-  getIcon() { return 'list-ordered'; }
+  getIcon() { return 'workflow'; }
 
   async onOpen() {
     const root = this.contentEl;
@@ -1025,7 +1025,7 @@ module.exports = class MermaidWalkthroughPlugin extends Plugin {
     this.lastFile = this.app.workspace.getActiveFile();
     this.registerView(VIEW_TYPE, (leaf) => new WalkthroughView(leaf, this));
 
-    this.addRibbonIcon('list-ordered', 'Open Mermaid Walkthrough', () => this.activate());
+    this.addRibbonIcon('workflow', 'Open Mermaid Walkthrough', () => this.activate());
     this.addCommand({ id: 'open', name: 'Open for current note', callback: () => this.activate() });
     this.addCommand({
       id: 'next-step', name: 'Next step',
