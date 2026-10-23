@@ -1,6 +1,6 @@
 {
-  "id": "mermaid-stepper",
-  "name": "Mermaid Stepper",
+  "id": "mermaid-walkthrough",
+  "name": "Mermaid Walkthrough",
   "version": "1.0.0",
   "minAppVersion": "1.4.0",
   "description": "Step through Mermaid sequence diagrams in a document one message at a time, as a sequence or on a participant map, highlighting the active path.",

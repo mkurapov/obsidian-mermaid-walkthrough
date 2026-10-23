@@ -2,7 +2,7 @@
 
 const { Plugin, ItemView, MarkdownView, setIcon, debounce } = require('obsidian');
 
-const VIEW_TYPE = 'mermaid-stepper';
+const VIEW_TYPE = 'mermaid-walkthrough';
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const clean = (s) => s.replace(/<br\s*\/?>/gi, '\n').replace(/#(\d+);/g, (_, c) => String.fromCharCode(+c)).trim();
@@ -168,18 +168,18 @@ function toneFor(color, bi) {
   const hex = color && color.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
   if (fn) rgb = fn.slice(1, 4).map(Number);
   else if (hex) rgb = hex.slice(1, 4).map((v) => parseInt(v, 16));
-  if (!rgb) return 'ss-b' + ((bi % 3) + 1);
+  if (!rgb) return 'mw-b' + ((bi % 3) + 1);
   const [r, g, b] = rgb;
   const max = Math.max(r, g, b), d = max - Math.min(r, g, b);
-  if (!d) return 'ss-b' + ((bi % 3) + 1);
+  if (!d) return 'mw-b' + ((bi % 3) + 1);
   const h = 60 * (max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4);
-  return h >= 200 && h < 330 ? 'ss-b1' : h >= 90 && h < 200 ? 'ss-b2' : 'ss-b3';
+  return h >= 200 && h < 330 ? 'mw-b1' : h >= 90 && h < 200 ? 'mw-b2' : 'mw-b3';
 }
 
 const TIPS = {
-  arrow: '<svg class="ss-tip" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M0 0 L10 5 L0 10 Z" fill="currentColor"/></svg>',
-  open: '<svg class="ss-tip" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 1 L9 5 L1 9" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
-  cross: '<svg class="ss-tip" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 1 L9 9 M9 1 L1 9" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
+  arrow: '<svg class="mw-tip" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M0 0 L10 5 L0 10 Z" fill="currentColor"/></svg>',
+  open: '<svg class="mw-tip" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 1 L9 5 L1 9" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
+  cross: '<svg class="mw-tip" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 1 L9 9 M9 1 L1 9" fill="none" stroke="currentColor" stroke-width="2"/></svg>',
   none: '',
 };
 
@@ -194,23 +194,23 @@ function renderDiagram(model) {
   };
 
   const actorRow = model.boxes.some((b) => b.members.length) ? 2 : 1;
-  const cls = P.map((_, i) => (i === 0 ? ' ss-first' : ''));
-  let h = '<div class="ss-head"><div class="ss-grid">';
+  const cls = P.map((_, i) => (i === 0 ? ' mw-first' : ''));
+  let h = '<div class="mw-head"><div class="mw-grid">';
   model.boxes.forEach((b, bi) => {
     if (!b.members.length) return;
     const { lo, hi } = span(b.members);
     const tone = toneFor(b.color, bi);
-    for (let c = lo; c <= hi; c++) cls[c - 1] += ' ss-in-box';
-    cls[lo - 1] += ' ss-box-start';
-    cls[hi - 1] += ' ss-box-end';
-    h += `<div class="ss-boxband ${tone}" data-box="${bi}" style="grid-column:${lo}/${hi + 1};grid-row:1">${esc(b.label)}</div>`;
-    h += `<div class="ss-boxframe ${tone}" data-box="${bi}" style="grid-column:${lo}/${hi + 1};grid-row:1/3" aria-hidden="true"></div>`;
+    for (let c = lo; c <= hi; c++) cls[c - 1] += ' mw-in-box';
+    cls[lo - 1] += ' mw-box-start';
+    cls[hi - 1] += ' mw-box-end';
+    h += `<div class="mw-boxband ${tone}" data-box="${bi}" style="grid-column:${lo}/${hi + 1};grid-row:1">${esc(b.label)}</div>`;
+    h += `<div class="mw-boxframe ${tone}" data-box="${bi}" style="grid-column:${lo}/${hi + 1};grid-row:1/3" aria-hidden="true"></div>`;
   });
-  P.forEach((p, i) => { h += `<div class="ss-participant ss-actor${cls[i]}" data-i="${i}" style="grid-column:${i + 1};grid-row:${actorRow}">${esc(p.label)}</div>`; });
+  P.forEach((p, i) => { h += `<div class="mw-participant mw-actor${cls[i]}" data-i="${i}" style="grid-column:${i + 1};grid-row:${actorRow}">${esc(p.label)}</div>`; });
   h += '</div></div>';
 
-  h += '<div class="ss-body"><div class="ss-hl" hidden></div><div class="ss-grid ss-lifelines" aria-hidden="true">';
-  P.forEach((_, i) => { h += `<div class="ss-ll" data-i="${i}"></div>`; });
+  h += '<div class="mw-body"><div class="mw-hl" hidden></div><div class="mw-grid mw-lifelines" aria-hidden="true">';
+  P.forEach((_, i) => { h += `<div class="mw-ll" data-i="${i}"></div>`; });
   h += '</div>';
 
   // Each heading and the rows under it share a wrapper, so the pinned heading lets go where its
@@ -218,12 +218,12 @@ function renderDiagram(model) {
   const scopes = []; // close index of each open wrapper, innermost last
   model.items.forEach((it, ii) => {
     while (scopes.length && scopes[scopes.length - 1] <= ii) { scopes.pop(); h += '</div>'; }
-    if (it.type === 'section' || it.type === 'block') { scopes.push(it.close); h += '<div class="ss-scope">'; }
+    if (it.type === 'section' || it.type === 'block') { scopes.push(it.close); h += '<div class="mw-scope">'; }
     if (it.type === 'end') return;
     if (it.type === 'section') {
-      h += `<div class="ss-row ss-section" data-item="${ii}"><div class="ss-band" style="grid-column:1/-1">${esc(it.text)}</div></div>`;
+      h += `<div class="mw-row mw-section" data-item="${ii}"><div class="mw-band" style="grid-column:1/-1">${esc(it.text)}</div></div>`;
     } else if (it.type === 'block') {
-      h += `<div class="ss-row ss-block" data-item="${ii}"><div class="ss-band" style="grid-column:1/-1"><span class="ss-kind">${esc(it.kind)}</span>${esc(it.text)}</div></div>`;
+      h += `<div class="mw-row mw-block" data-item="${ii}"><div class="mw-band" style="grid-column:1/-1"><span class="mw-kind">${esc(it.kind)}</span>${esc(it.text)}</div></div>`;
     } else if (it.type === 'msg') {
       let { lo, hi, k } = span([it.from, it.to]);
       const a = col(it.from), b = col(it.to);
@@ -234,15 +234,15 @@ function renderDiagram(model) {
         if (a < n) { hi = a + 1; off = '0.25'; } else { lo = a - 1; off = '0.75'; }
         k = 2;
       }
-      h += `<div class="ss-row ss-step ss-msg ss-dir-${dir}${it.dashed ? ' ss-dashed' : ''}" data-step="${it.step}" data-item="${ii}">` +
-        `<div class="ss-span" style="grid-column:${lo}/${hi + 1};--k:${k}${off ? `;--off:${off}` : ''}">` +
-        `<div class="ss-label"><span class="ss-num">${it.step + 1}</span><span>${esc(it.text)}</span></div>` +
-        `<div class="ss-wire">${TIPS[it.head]}</div></div></div>`;
+      h += `<div class="mw-row mw-step mw-msg mw-dir-${dir}${it.dashed ? ' mw-dashed' : ''}" data-step="${it.step}" data-item="${ii}">` +
+        `<div class="mw-span" style="grid-column:${lo}/${hi + 1};--k:${k}${off ? `;--off:${off}` : ''}">` +
+        `<div class="mw-label"><span class="mw-num">${it.step + 1}</span><span>${esc(it.text)}</span></div>` +
+        `<div class="mw-wire">${TIPS[it.head]}</div></div></div>`;
     } else {
       const { lo, hi, k } = span(it.ids);
-      h += `<div class="ss-row ss-step ss-note" data-step="${it.step}" data-item="${ii}">` +
-        `<div class="ss-span" style="grid-column:${lo}/${hi + 1};--k:${k}">` +
-        `<div class="ss-notecard"><span class="ss-num">${it.step + 1}</span><span>${esc(it.text)}</span></div></div></div>`;
+      h += `<div class="mw-row mw-step mw-note" data-step="${it.step}" data-item="${ii}">` +
+        `<div class="mw-span" style="grid-column:${lo}/${hi + 1};--k:${k}">` +
+        `<div class="mw-notecard"><span class="mw-num">${it.step + 1}</span><span>${esc(it.text)}</span></div></div></div>`;
     }
   });
   return h + '</div>'.repeat(scopes.length) + '</div>';
@@ -292,19 +292,19 @@ function mergeLayout(model, saved) {
 }
 
 function renderMap(model, L) {
-  let h = '<div class="ss-mapwrap"><div class="ss-canvas">';
+  let h = '<div class="mw-mapwrap"><div class="mw-canvas">';
   model.boxes.forEach((b, bi) => {
     const r = L.boxes[boxKey(b, bi)];
     if (!r) return;
-    h += `<div class="ss-mbox ${toneFor(b.color, bi)}" data-box="${bi}" style="left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px">` +
-      `<div class="ss-mbox-label">${esc(b.label)}</div><div class="ss-mhandle" title="Drag to resize"></div></div>`;
+    h += `<div class="mw-mbox ${toneFor(b.color, bi)}" data-box="${bi}" style="left:${r.x}px;top:${r.y}px;width:${r.w}px;height:${r.h}px">` +
+      `<div class="mw-mbox-label">${esc(b.label)}</div><div class="mw-mhandle" title="Drag to resize"></div></div>`;
   });
-  h += '<svg class="ss-medges" aria-hidden="true"></svg>';
+  h += '<svg class="mw-medges" aria-hidden="true"></svg>';
   model.participants.forEach((p, i) => {
     const r = L.nodes[p.id];
-    h += `<div class="ss-participant ss-mnode" data-i="${i}" style="left:${r.x}px;top:${r.y}px;width:${NODE_W}px;height:${NODE_H}px">${esc(p.label)}</div>`;
+    h += `<div class="mw-participant mw-mnode" data-i="${i}" style="left:${r.x}px;top:${r.y}px;width:${NODE_W}px;height:${NODE_H}px">${esc(p.label)}</div>`;
   });
-  return h + '<div class="ss-mcard" hidden></div></div></div>';
+  return h + '<div class="mw-mcard" hidden></div></div></div>';
 }
 
 // An elbow route from one card to another: out of the facing sides, across, and in.
@@ -336,7 +336,7 @@ function route(A, B, off) {
 
 // ---- The pane ----
 
-class StepperView extends ItemView {
+class WalkthroughView extends ItemView {
   constructor(leaf, plugin) {
     super(leaf);
     this.plugin = plugin;
@@ -354,54 +354,54 @@ class StepperView extends ItemView {
   }
 
   getViewType() { return VIEW_TYPE; }
-  getDisplayText() { return this.file ? `Steps: ${this.file.basename}` : 'Mermaid Stepper'; }
+  getDisplayText() { return this.file ? `Steps: ${this.file.basename}` : 'Mermaid Walkthrough'; }
   getIcon() { return 'list-ordered'; }
 
   async onOpen() {
     const root = this.contentEl;
     root.empty();
-    root.addClass('ss-root');
+    root.addClass('mw-root');
     root.setAttr('tabindex', '0');
     root.innerHTML =
-      '<div class="ss-bar">' +
-        '<div class="ss-brand"><div class="ss-title"></div><div class="ss-readout" aria-live="polite"></div><span class="ss-warn" hidden></span></div>' +
-        '<div class="ss-controls">' +
-          '<button class="ss-btn ss-icon" data-act="prev" aria-label="Previous step (←)"></button>' +
-          '<span class="ss-counter">– / 0</span>' +
-          '<button class="ss-btn ss-icon ss-primary" data-act="next" aria-label="Next step (→)"></button>' +
-          '<button class="ss-btn" data-act="overview" aria-pressed="false" aria-label="Show all (Esc)">Show all</button>' +
-          '<div class="ss-seg" role="group" aria-label="Switch layout (M)">' +
-            '<button class="ss-btn" data-mode="sequence">Sequence</button>' +
-            '<button class="ss-btn" data-mode="map">Map</button>' +
+      '<div class="mw-bar">' +
+        '<div class="mw-brand"><div class="mw-title"></div><div class="mw-readout" aria-live="polite"></div><span class="mw-warn" hidden></span></div>' +
+        '<div class="mw-controls">' +
+          '<button class="mw-btn mw-icon" data-act="prev" aria-label="Previous step (←)"></button>' +
+          '<span class="mw-counter">– / 0</span>' +
+          '<button class="mw-btn mw-icon mw-primary" data-act="next" aria-label="Next step (→)"></button>' +
+          '<button class="mw-btn" data-act="overview" aria-pressed="false" aria-label="Show all (Esc)">Show all</button>' +
+          '<div class="mw-seg" role="group" aria-label="Switch layout (M)">' +
+            '<button class="mw-btn" data-mode="sequence">Sequence</button>' +
+            '<button class="mw-btn" data-mode="map">Map</button>' +
           '</div>' +
         '</div>' +
       '</div>' +
-      '<nav class="ss-tabs" role="tablist" aria-label="Diagrams" hidden></nav>' +
-      '<div class="ss-mapbar" hidden>' +
-        '<span class="ss-phase" aria-live="polite" hidden></span>' +
-        '<span class="ss-mapbar-tools">' +
-          '<button class="ss-btn ss-icon" data-zoom="out" aria-label="Zoom out"></button>' +
-          '<span class="ss-zoom" aria-label="Pinch or Ctrl/⌘-scroll to zoom, drag empty space to pan">100%</span>' +
-          '<button class="ss-btn ss-icon" data-zoom="in" aria-label="Zoom in"></button>' +
-          '<button class="ss-btn" data-zoom="fit">Fit</button>' +
-          '<button class="ss-btn" data-act="reset" aria-label="Drag cards and boxes to arrange them">Reset layout</button>' +
+      '<nav class="mw-tabs" role="tablist" aria-label="Diagrams" hidden></nav>' +
+      '<div class="mw-mapbar" hidden>' +
+        '<span class="mw-phase" aria-live="polite" hidden></span>' +
+        '<span class="mw-mapbar-tools">' +
+          '<button class="mw-btn mw-icon" data-zoom="out" aria-label="Zoom out"></button>' +
+          '<span class="mw-zoom" aria-label="Pinch or Ctrl/⌘-scroll to zoom, drag empty space to pan">100%</span>' +
+          '<button class="mw-btn mw-icon" data-zoom="in" aria-label="Zoom in"></button>' +
+          '<button class="mw-btn" data-zoom="fit">Fit</button>' +
+          '<button class="mw-btn" data-act="reset" aria-label="Drag cards and boxes to arrange them">Reset layout</button>' +
         '</span>' +
       '</div>' +
-      '<div class="ss-stage"><div class="ss-diagram"></div></div>';
+      '<div class="mw-stage"><div class="mw-diagram"></div></div>';
 
     const q = (s) => root.querySelector(s);
     this.els = {
-      title: q('.ss-title'), readout: q('.ss-readout'), counter: q('.ss-counter'),
+      title: q('.mw-title'), readout: q('.mw-readout'), counter: q('.mw-counter'),
       prev: q('[data-act="prev"]'), next: q('[data-act="next"]'), overview: q('[data-act="overview"]'),
-      tabs: q('.ss-tabs'), stage: q('.ss-stage'), diagram: q('.ss-diagram'), warn: q('.ss-warn'),
+      tabs: q('.mw-tabs'), stage: q('.mw-stage'), diagram: q('.mw-diagram'), warn: q('.mw-warn'),
     };
     setIcon(this.els.prev, 'chevron-left');
     setIcon(this.els.next, 'chevron-right');
 
     this.els.modes = root.querySelectorAll('[data-mode]');
-    this.els.mapbar = q('.ss-mapbar');
-    this.els.phase = q('.ss-phase');
-    this.els.zoomLabel = q('.ss-zoom');
+    this.els.mapbar = q('.mw-mapbar');
+    this.els.phase = q('.mw-phase');
+    this.els.zoomLabel = q('.mw-zoom');
     setIcon(q('[data-zoom="out"]'), 'minus');
     setIcon(q('[data-zoom="in"]'), 'plus');
     this.els.modes.forEach((b) => this.registerDomEvent(b, 'click', () => this.setMode(b.dataset.mode)));
@@ -478,7 +478,7 @@ class StepperView extends ItemView {
   }
 
   refreshTitle() {
-    this.els.title.textContent = this.file ? this.file.basename : 'Mermaid Stepper';
+    this.els.title.textContent = this.file ? this.file.basename : 'Mermaid Walkthrough';
     if (this.leaf.updateHeader) this.leaf.updateHeader();
   }
 
@@ -530,7 +530,7 @@ class StepperView extends ItemView {
     this.els.tabs.hidden = true;
     this.els.warn.hidden = true;
     this.els.diagram.style.setProperty('--n', 1);
-    this.els.diagram.innerHTML = `<div class="ss-empty">${esc(message)}</div>`;
+    this.els.diagram.innerHTML = `<div class="mw-empty">${esc(message)}</div>`;
     this.els.readout.textContent = '';
     this.els.phase.hidden = true;
     this.els.counter.textContent = '– / 0';
@@ -541,7 +541,7 @@ class StepperView extends ItemView {
     const tabs = this.els.tabs;
     tabs.hidden = this.diagrams.length < 2;
     tabs.innerHTML = this.diagrams.map((d, i) =>
-      `<button class="ss-tab" role="tab" data-tab="${i}" aria-selected="${i === this.active}"${i < 9 ? ` aria-label="${esc(d.name)} (${i + 1})"` : ''}>${esc(d.name)}<span class="ss-count">${d.model.steps.length}</span></button>`
+      `<button class="mw-tab" role="tab" data-tab="${i}" aria-selected="${i === this.active}"${i < 9 ? ` aria-label="${esc(d.name)} (${i + 1})"` : ''}>${esc(d.name)}<span class="mw-count">${d.model.steps.length}</span></button>`
     ).join('');
   }
 
@@ -553,10 +553,10 @@ class StepperView extends ItemView {
     this.cur = this.diagrams[i].cur;
     this.els.overview.disabled = false;
     if (!this.model.participants.length) {
-      this.els.diagram.innerHTML = '<div class="ss-empty">This diagram has no participants yet.</div>';
+      this.els.diagram.innerHTML = '<div class="mw-empty">This diagram has no participants yet.</div>';
     } else {
       this.els.diagram.style.setProperty('--n', this.model.participants.length);
-      this.els.diagram.classList.toggle('ss-map-mode', this.mode === 'map');
+      this.els.diagram.classList.toggle('mw-map-mode', this.mode === 'map');
       if (this.mode === 'map') this.renderMapView(keepScroll);
       else this.els.diagram.innerHTML = renderDiagram(this.model);
     }
@@ -615,45 +615,45 @@ class StepperView extends ItemView {
     const steps = model.steps;
     const total = steps.length;
     const on = this.cur >= 0 && this.cur < total;
-    dg.classList.toggle('ss-stepping', on);
-    dg.querySelectorAll('.ss-active, .ss-on, .ss-from, .ss-to, .ss-noteon, .ss-current')
-      .forEach((el) => el.classList.remove('ss-active', 'ss-on', 'ss-from', 'ss-to', 'ss-noteon', 'ss-current'));
+    dg.classList.toggle('mw-stepping', on);
+    dg.querySelectorAll('.mw-active, .mw-on, .mw-from, .mw-to, .mw-noteon, .mw-current')
+      .forEach((el) => el.classList.remove('mw-active', 'mw-on', 'mw-from', 'mw-to', 'mw-noteon', 'mw-current'));
 
     if (this.mode === 'map') { this.applyMap(); this.applyReadout(); return; }
 
-    const head = dg.querySelector('.ss-head');
+    const head = dg.querySelector('.mw-head');
     dg.style.setProperty('--head-h', head ? head.offsetHeight + 16 + 'px' : '0px');
     // Pin phase headings a pixel under the header's bottom edge, rounding down, so no sliver of the
     // steps scrolling past shows between them at fractional heights or zoom levels.
     dg.style.setProperty('--head-top', head ? Math.max(0, Math.floor(head.getBoundingClientRect().height) - 1) + 'px' : '0px');
     this.stackHeadings();
 
-    const hl = dg.querySelector('.ss-hl');
+    const hl = dg.querySelector('.mw-hl');
     if (on) {
       const st = steps[this.cur];
       const row = dg.querySelector(`[data-step="${this.cur}"]`);
-      row.classList.add('ss-active');
+      row.classList.add('mw-active');
       const ids = st.type === 'msg' ? [st.from, st.to] : st.ids;
       const onIdx = new Set(ids.map((id) => model.idx.get(id)));
-      const actor = (i) => dg.querySelector(`.ss-actor[data-i="${i}"]`);
+      const actor = (i) => dg.querySelector(`.mw-actor[data-i="${i}"]`);
       onIdx.forEach((i) => {
-        actor(i).classList.add('ss-on');
-        dg.querySelector(`.ss-ll[data-i="${i}"]`).classList.add('ss-on');
+        actor(i).classList.add('mw-on');
+        dg.querySelector(`.mw-ll[data-i="${i}"]`).classList.add('mw-on');
       });
       if (st.type === 'msg') {
-        actor(model.idx.get(st.from)).classList.add('ss-from');
-        actor(model.idx.get(st.to)).classList.add('ss-to');
+        actor(model.idx.get(st.from)).classList.add('mw-from');
+        actor(model.idx.get(st.to)).classList.add('mw-to');
       } else {
-        onIdx.forEach((i) => actor(i).classList.add('ss-noteon'));
+        onIdx.forEach((i) => actor(i).classList.add('mw-noteon'));
       }
       model.boxes.forEach((b, bi) => {
         if (b.members.some((id) => onIdx.has(model.idx.get(id)))) {
-          dg.querySelectorAll(`[data-box="${bi}"]`).forEach((el) => el.classList.add('ss-on'));
+          dg.querySelectorAll(`[data-box="${bi}"]`).forEach((el) => el.classList.add('mw-on'));
         }
       });
       if (st.section != null) {
         const secRow = dg.querySelector(`[data-item="${st.section}"]`);
-        if (secRow) secRow.classList.add('ss-current');
+        if (secRow) secRow.classList.add('mw-current');
       }
       if (hl) {
         hl.hidden = false;
@@ -671,9 +671,9 @@ class StepperView extends ItemView {
   // An inner heading sits lower in the stack, so when its own rows run out it slides away beneath
   // the outer one. Overlapping by a pixel per level keeps slivers of the rows from showing between.
   stackHeadings() {
-    this.els.diagram.querySelectorAll('.ss-scope > .ss-row:first-child').forEach((row) => {
+    this.els.diagram.querySelectorAll('.mw-scope > .mw-row:first-child').forEach((row) => {
       let offset = 0, depth = 0;
-      for (let s = row.parentElement.parentElement.closest('.ss-scope'); s; s = s.parentElement.closest('.ss-scope')) {
+      for (let s = row.parentElement.parentElement.closest('.mw-scope'); s; s = s.parentElement.closest('.mw-scope')) {
         offset += Math.floor(s.firstElementChild.getBoundingClientRect().height) - 1;
         depth++;
       }
@@ -688,7 +688,7 @@ class StepperView extends ItemView {
   scrollStepToTop(row, st) {
     const stage = this.els.stage;
     const dg = this.els.diagram;
-    const head = dg.querySelector('.ss-head');
+    const head = dg.querySelector('.mw-head');
     const sec = st.section != null ? dg.querySelector(`[data-item="${st.section}"]`) : null;
     const pinned = (head ? head.offsetHeight : 0) + (sec ? +sec.dataset.stack + sec.offsetHeight : 0) + 4;
     const top = stage.scrollTop + row.getBoundingClientRect().top - stage.getBoundingClientRect().top - pinned;
@@ -701,7 +701,7 @@ class StepperView extends ItemView {
     const total = model.steps.length;
     const on = this.cur >= 0 && this.cur < total;
     // While stepping, the phase and the step already show on the diagram, so the toolbar keeps to the counter.
-    this.els.readout.innerHTML = on ? '' : `<span class="ss-what">${total} steps · ${model.participants.length} participants</span>`;
+    this.els.readout.innerHTML = on ? '' : `<span class="mw-what">${total} steps · ${model.participants.length} participants</span>`;
 
     this.els.counter.textContent = on ? `${this.cur + 1} / ${total}` : `– / ${total}`;
     this.els.prev.disabled = !total || this.cur <= 0;
@@ -763,8 +763,8 @@ class StepperView extends ItemView {
   // The canvas fills the pane at the current zoom, with room to spare past the content. It only
   // grows while the map is open, so moving a box never makes it jump or shrink under the pointer.
   sizeCanvas() {
-    const canvas = this.els.diagram.querySelector('.ss-canvas');
-    const wrap = this.els.diagram.querySelector('.ss-mapwrap');
+    const canvas = this.els.diagram.querySelector('.mw-canvas');
+    const wrap = this.els.diagram.querySelector('.mw-mapwrap');
     if (!canvas || !wrap) return;
     const { w, h } = this.contentExtent();
     const stage = this.els.stage;
@@ -775,7 +775,7 @@ class StepperView extends ItemView {
     canvas.style.transform = `scale(${this.zoom})`;
     wrap.style.width = this.canvasW * this.zoom + 'px';
     wrap.style.height = this.canvasH * this.zoom + 'px';
-    const svg = this.els.diagram.querySelector('.ss-medges');
+    const svg = this.els.diagram.querySelector('.mw-medges');
     if (svg) {
       svg.setAttribute('width', String(this.canvasW));
       svg.setAttribute('height', String(this.canvasH));
@@ -795,7 +795,7 @@ class StepperView extends ItemView {
   }
 
   drawMapEdges() {
-    const svg = this.els.diagram.querySelector('.ss-medges');
+    const svg = this.els.diagram.querySelector('.mw-medges');
     if (!svg) return;
     this.edgeMid = new Map();
     let paths = '';
@@ -810,54 +810,54 @@ class StepperView extends ItemView {
         geo = route(A, this.nodeRect(pair.b), off);
       }
       this.edgeMid.set(key, geo.mid);
-      paths += `<path class="ss-medge${pair.dashed ? ' ss-dashed' : ''}" data-edge="${key}" d="${geo.d}" marker-end="url(#ss-tip-${this.uid})"/>`;
+      paths += `<path class="mw-medge${pair.dashed ? ' mw-dashed' : ''}" data-edge="${key}" d="${geo.d}" marker-end="url(#mw-tip-${this.uid})"/>`;
     });
     const marker = (id, cls) =>
       `<marker id="${id}" viewBox="0 0 10 10" refX="9" refY="5" markerUnits="userSpaceOnUse" markerWidth="9" markerHeight="9" orient="auto"><path class="${cls}" d="M0 0 L10 5 L0 10 Z"/></marker>`;
     svg.setAttribute('width', String(this.canvasW));
     svg.setAttribute('height', String(this.canvasH));
-    svg.innerHTML = `<defs>${marker(`ss-tip-${this.uid}`, 'ss-marker')}${marker(`ss-tip-on-${this.uid}`, 'ss-marker-on')}</defs>${paths}`;
+    svg.innerHTML = `<defs>${marker(`mw-tip-${this.uid}`, 'mw-marker')}${marker(`mw-tip-on-${this.uid}`, 'mw-marker-on')}</defs>${paths}`;
   }
 
   applyMap() {
     const dg = this.els.diagram;
     const model = this.model;
     const on = this.cur >= 0 && this.cur < model.steps.length;
-    dg.classList.toggle('ss-mapping', on);
+    dg.classList.toggle('mw-mapping', on);
     // The phase name, then any alt/opt/loop it is in, the way the sequence headings show them.
     const st = on ? model.steps[this.cur] : null;
     const parts = [];
-    if (st && st.phase != null) parts.push(`<span class="ss-phase-name">${esc(model.items[st.phase].text)}</span>`);
+    if (st && st.phase != null) parts.push(`<span class="mw-phase-name">${esc(model.items[st.phase].text)}</span>`);
     if (st) st.blocks.forEach((bi) => {
       const b = model.items[bi];
-      parts.push(`<span class="ss-phase-block"><span class="ss-kind">${esc(b.kind)}</span>${b.text ? ' ' + esc(b.text) : ''}</span>`);
+      parts.push(`<span class="mw-phase-block"><span class="mw-kind">${esc(b.kind)}</span>${b.text ? ' ' + esc(b.text) : ''}</span>`);
     });
-    this.els.phase.innerHTML = parts.join('<span class="ss-phase-sep">›</span>');
+    this.els.phase.innerHTML = parts.join('<span class="mw-phase-sep">›</span>');
     this.els.phase.hidden = !parts.length;
-    const card = dg.querySelector('.ss-mcard');
+    const card = dg.querySelector('.mw-mcard');
     if (!card) return;
     if (!on) { card.hidden = true; return; }
 
     const ids = st.type === 'msg' ? [st.from, st.to] : st.ids;
-    ids.forEach((id) => dg.querySelector(`.ss-mnode[data-i="${model.idx.get(id)}"]`).classList.add('ss-on'));
+    ids.forEach((id) => dg.querySelector(`.mw-mnode[data-i="${model.idx.get(id)}"]`).classList.add('mw-on'));
     if (st.type === 'msg') {
-      dg.querySelector(`.ss-mnode[data-i="${model.idx.get(st.from)}"]`).classList.add('ss-from');
-      dg.querySelector(`.ss-mnode[data-i="${model.idx.get(st.to)}"]`).classList.add('ss-to');
+      dg.querySelector(`.mw-mnode[data-i="${model.idx.get(st.from)}"]`).classList.add('mw-from');
+      dg.querySelector(`.mw-mnode[data-i="${model.idx.get(st.to)}"]`).classList.add('mw-to');
     }
     model.boxes.forEach((b, bi) => {
       if (b.members.some((id) => ids.includes(id))) {
-        const el = dg.querySelector(`.ss-mbox[data-box="${bi}"]`);
-        if (el) el.classList.add('ss-on');
+        const el = dg.querySelector(`.mw-mbox[data-box="${bi}"]`);
+        if (el) el.classList.add('mw-on');
       }
     });
 
     let at = null;
     if (st.type === 'msg') {
       const key = `${model.idx.get(st.from)}>${model.idx.get(st.to)}`;
-      const edge = dg.querySelector(`.ss-medge[data-edge="${key}"]`);
+      const edge = dg.querySelector(`.mw-medge[data-edge="${key}"]`);
       if (edge) {
-        edge.classList.add('ss-active');
-        edge.setAttribute('marker-end', `url(#ss-tip-on-${this.uid})`);
+        edge.classList.add('mw-active');
+        edge.setAttribute('marker-end', `url(#mw-tip-on-${this.uid})`);
         edge.parentNode.appendChild(edge); // draw the active arrow above the others
       }
       at = this.edgeMid.get(key);
@@ -871,10 +871,10 @@ class StepperView extends ItemView {
     // Any alt/opt/loop the step sits in rides on top of its box as a tab, apart from the step's own text.
     const cond = st.blocks.map((bi) => {
       const b = model.items[bi];
-      return `<span class="ss-kind">${esc(b.kind)}</span>${b.text ? ' ' + esc(b.text) : ''}`;
+      return `<span class="mw-kind">${esc(b.kind)}</span>${b.text ? ' ' + esc(b.text) : ''}`;
     }).join(' › ');
-    card.innerHTML = (cond ? `<div class="ss-cond">${cond}</div>` : '') +
-      `<div class="ss-label ss-label-on"><span class="ss-num">${this.cur + 1}</span><span>${esc(st.text)}</span></div>`;
+    card.innerHTML = (cond ? `<div class="mw-cond">${cond}</div>` : '') +
+      `<div class="mw-label mw-label-on"><span class="mw-num">${this.cur + 1}</span><span>${esc(st.text)}</span></div>`;
     this.placeCard(card, at);
   }
 
@@ -922,9 +922,9 @@ class StepperView extends ItemView {
   dragStart(e) {
     if (this.mode !== 'map' || !this.model) return;
     if (e.button !== 0 && e.button !== 1) return;
-    const handle = e.target.closest('.ss-mhandle');
-    const node = e.target.closest('.ss-mnode');
-    const box = e.target.closest('.ss-mbox');
+    const handle = e.target.closest('.mw-mhandle');
+    const node = e.target.closest('.mw-mnode');
+    const box = e.target.closest('.mw-mbox');
     e.preventDefault();
     this.contentEl.focus(); // keep arrow keys working after a drag
     // Empty space, or the middle button anywhere, pans the canvas.
@@ -932,7 +932,7 @@ class StepperView extends ItemView {
       const stage = this.els.stage;
       this.drag = { kind: 'pan', x0: e.clientX, y0: e.clientY, left: stage.scrollLeft, top: stage.scrollTop, el: e.target };
       e.target.setPointerCapture(e.pointerId);
-      this.contentEl.addClass('ss-panning');
+      this.contentEl.addClass('mw-panning');
       return;
     }
     const d = { x0: e.clientX, y0: e.clientY, moved: false, el: handle || node || box };
@@ -941,9 +941,9 @@ class StepperView extends ItemView {
       d.id = this.model.participants[+node.dataset.i].id;
       d.start = { ...this.layout.nodes[d.id] };
     } else {
-      const bi = +(box || handle.closest('.ss-mbox')).dataset.box;
+      const bi = +(box || handle.closest('.mw-mbox')).dataset.box;
       d.kind = handle ? 'resize' : 'box';
-      d.box = box || handle.closest('.ss-mbox');
+      d.box = box || handle.closest('.mw-mbox');
       d.key = boxKey(this.model.boxes[bi], bi);
       d.start = { ...this.layout.boxes[d.key] };
       // Moving a box carries its participants with it.
@@ -983,7 +983,7 @@ class StepperView extends ItemView {
       d.members.forEach((m) => {
         const n = { x: m.x + mx, y: m.y + my };
         this.layout.nodes[m.id] = n;
-        const el = dg.querySelector(`.ss-mnode[data-i="${this.model.idx.get(m.id)}"]`);
+        const el = dg.querySelector(`.mw-mnode[data-i="${this.model.idx.get(m.id)}"]`);
         Object.assign(el.style, { left: n.x + 'px', top: n.y + 'px' });
       });
     }
@@ -995,7 +995,7 @@ class StepperView extends ItemView {
   dragEnd() {
     const d = this.drag;
     this.drag = null;
-    this.contentEl.removeClass('ss-panning');
+    this.contentEl.removeClass('mw-panning');
     if (!d || !d.moved) return;
     this.sizeCanvas();
     this.plugin.settings.layouts[this.layoutKey()] = this.layout;
@@ -1011,20 +1011,20 @@ class StepperView extends ItemView {
   }
 
   clearMarks() {
-    this.els.diagram.querySelectorAll('.ss-active, .ss-on, .ss-from, .ss-to, .ss-noteon, .ss-current')
-      .forEach((el) => el.classList.remove('ss-active', 'ss-on', 'ss-from', 'ss-to', 'ss-noteon', 'ss-current'));
+    this.els.diagram.querySelectorAll('.mw-active, .mw-on, .mw-from, .mw-to, .mw-noteon, .mw-current')
+      .forEach((el) => el.classList.remove('mw-active', 'mw-on', 'mw-from', 'mw-to', 'mw-noteon', 'mw-current'));
   }
 }
 
 // ---- Plugin ----
 
-module.exports = class MermaidStepperPlugin extends Plugin {
+module.exports = class MermaidWalkthroughPlugin extends Plugin {
   async onload() {
     this.settings = Object.assign({ mode: 'sequence', layouts: {}, views: {} }, await this.loadData());
     this.lastFile = this.app.workspace.getActiveFile();
-    this.registerView(VIEW_TYPE, (leaf) => new StepperView(leaf, this));
+    this.registerView(VIEW_TYPE, (leaf) => new WalkthroughView(leaf, this));
 
-    this.addRibbonIcon('list-ordered', 'Open Mermaid Stepper', () => this.activate());
+    this.addRibbonIcon('list-ordered', 'Open Mermaid Walkthrough', () => this.activate());
     this.addCommand({ id: 'open', name: 'Open for current note', callback: () => this.activate() });
     this.addCommand({
       id: 'next-step', name: 'Next step',
@@ -1043,7 +1043,7 @@ module.exports = class MermaidStepperPlugin extends Plugin {
   withView(checking, fn) {
     const leaf = this.app.workspace.getLeavesOfType(VIEW_TYPE)[0];
     const view = leaf && leaf.view;
-    if (!(view instanceof StepperView) || !view.model) return false;
+    if (!(view instanceof WalkthroughView) || !view.model) return false;
     if (!checking) fn(view);
     return true;
   }
@@ -1057,7 +1057,7 @@ module.exports = class MermaidStepperPlugin extends Plugin {
       await leaf.setViewState({ type: VIEW_TYPE, active: true });
     }
     this.app.workspace.revealLeaf(leaf);
-    if (file && leaf.view instanceof StepperView) await leaf.view.setFile(file);
+    if (file && leaf.view instanceof WalkthroughView) await leaf.view.setFile(file);
     leaf.view.contentEl.focus();
   }
 };
