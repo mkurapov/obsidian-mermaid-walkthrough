@@ -378,7 +378,6 @@ class WalkthroughView extends ItemView {
       '</div>' +
       '<nav class="mw-tabs" role="tablist" aria-label="Diagrams" hidden></nav>' +
       '<div class="mw-mapbar" hidden>' +
-        '<span class="mw-phase" aria-live="polite" hidden></span>' +
         '<span class="mw-mapbar-tools">' +
           '<button class="mw-btn mw-icon" data-zoom="out" aria-label="Zoom out"></button>' +
           '<span class="mw-zoom" aria-label="Pinch or Ctrl/⌘-scroll to zoom, drag empty space to pan">100%</span>' +
@@ -387,7 +386,8 @@ class WalkthroughView extends ItemView {
           '<button class="mw-btn" data-act="reset" aria-label="Drag cards and boxes to arrange them">Reset layout</button>' +
         '</span>' +
       '</div>' +
-      '<div class="mw-stage"><div class="mw-diagram"></div></div>';
+      '<div class="mw-stage"><div class="mw-diagram"></div></div>' +
+      '<div class="mw-phase" aria-live="polite" hidden></div>';
 
     const q = (s) => root.querySelector(s);
     this.els = {
@@ -466,6 +466,7 @@ class WalkthroughView extends ItemView {
   syncModeButtons() {
     this.els.modes.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.mode === this.mode)));
     this.els.mapbar.hidden = this.mode !== 'map' || !this.model;
+    if (this.els.mapbar.hidden) this.els.phase.hidden = true;
   }
 
   setMode(mode) {

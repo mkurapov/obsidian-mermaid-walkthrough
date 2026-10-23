@@ -310,10 +310,14 @@
   padding: 6px 14px; border-bottom: var(--mw-border) solid var(--mw-line); color: var(--mw-muted); font-size: var(--mw-text-small);
 }
 .mw-mapbar-tools { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; }
-/* The current step's rect or spanning note, which the map has no other place to show */
+/* The current step's rect or spanning note and any alt/opt around it, which the map has no other
+   place to show. It floats over the bottom-left of the canvas, clear of the pane's edges. */
+.mw-root { position: relative; }
 .mw-phase {
-  flex: 1 1 0; min-width: 0; color: var(--mw-ink);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  position: absolute; left: 16px; bottom: 16px; z-index: 6; max-width: min(420px, calc(100% - 32px));
+  padding: 10px 14px; border: var(--mw-border) solid var(--mw-line); border-radius: var(--mw-radius-group);
+  background: var(--mw-bg); box-shadow: var(--shadow-s); pointer-events: none;
+  color: var(--mw-ink); font-size: var(--mw-text-small); line-height: var(--line-height-tight);
 }
 .mw-phase-name { font-weight: var(--mw-weight-strong); font-size: var(--mw-text-phase); }
 .mw-phase-block { font-weight: var(--font-medium); }
