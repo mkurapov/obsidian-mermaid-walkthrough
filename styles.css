@@ -52,12 +52,14 @@
 
   --mw-col-min: 92px;
   --mw-ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --mw-duration: 220ms;
+  --mw-duration-slow: 260ms; /* the step highlight sliding between rows */
 
   display: flex; flex-direction: column; height: 100%;
   background: var(--mw-bg); color: var(--mw-ink);
   font-family: var(--font-interface); font-size: var(--mw-text); line-height: var(--line-height-normal);
 }
-/* Specific enough to beat the default .view-content padding and scrolling without !important. */
+/* Specific enough to beat the default .view-content padding and scrolling. */
 .workspace-leaf-content .view-content.mw-root { padding: 0; overflow: hidden; }
 /* Dark themes: fading by opacity sinks into a dark background much faster than into a light one,
    so things outside the step stay brighter there, and arrows use the muted text colour. */
@@ -71,7 +73,8 @@
   --mw-fade-hover: 0.85;
 }
 .mw-root:focus { outline: none; }
-.mw-root [hidden] { display: none !important; }
+/* Beats the single-class display rules on the toolbar, tabs, map bar, phase box and step card. */
+.mw-root [hidden] { display: none; }
 
 /* Toolbar */
 .mw-bar {
@@ -134,9 +137,7 @@
 }
 /* Room for even the last step to scroll up under the header. It is a spacer inside the content,
    not padding, because the sticky header only stays pinned within its parent's content box. */
-.mw-diagram:not(.mw-map-mode):has(> .mw-head)::after {
-  content: ""; display: block; height: calc(100vh - var(--head-h, 100px));
-}
+.mw-tail { height: calc(100vh - var(--head-h, 100px)); }
 .mw-grid { display: grid; grid-template-columns: repeat(var(--n), minmax(var(--mw-col-min), 1fr)); }
 .mw-warn { color: var(--text-error); font-size: var(--mw-text-small); cursor: help; }
 .mw-empty { padding: 40px 4px; color: var(--mw-muted); max-width: 46ch; }
@@ -150,7 +151,7 @@
   color: var(--mw-ink); background: var(--mw-surface);
   font-size: var(--mw-text-small); font-weight: var(--mw-weight-participant); line-height: var(--line-height-tight);
   overflow-wrap: anywhere;
-  transition: background 220ms var(--mw-ease), outline-color 220ms var(--mw-ease), opacity 220ms var(--mw-ease);
+  transition: background var(--mw-duration) var(--mw-ease), outline-color var(--mw-duration) var(--mw-ease), opacity var(--mw-duration) var(--mw-ease);
 }
 .mw-participant.mw-on {
   background: var(--mw-accent-soft);
@@ -175,13 +176,13 @@
   margin-inline: 3px; padding: 5px 10px; text-align: center;
   border-radius: var(--mw-radius-group) var(--mw-radius-group) 0 0;
   background: var(--mw-fill); color: var(--mw-box-ink);
-  transition: opacity 220ms var(--mw-ease);
+  transition: opacity var(--mw-duration) var(--mw-ease);
 }
 .mw-boxframe {
   grid-row: 1 / 3;
   position: relative; z-index: 1; pointer-events: none;
   margin-inline: 3px; border: var(--mw-stroke) solid var(--mw-edge); border-radius: var(--mw-radius-group);
-  transition: opacity 220ms var(--mw-ease);
+  transition: opacity var(--mw-duration) var(--mw-ease);
 }
 /* Actors are rounded like the map's cards. Dividers are drawn as pseudo-elements so they stay
    straight; there is no baseline, the header's own edge is enough. Inside a box, the actors sit within the frame's stroke, and the corner
@@ -211,16 +212,16 @@
 .mw-ll::before {
   content: ""; position: absolute; top: 0; bottom: 0;
   left: calc(50% - var(--mw-stroke) / 2); width: var(--mw-stroke);
-  background: var(--mw-line); transition: background 220ms var(--mw-ease), opacity 220ms var(--mw-ease);
+  background: var(--mw-line); transition: background var(--mw-duration) var(--mw-ease), opacity var(--mw-duration) var(--mw-ease);
 }
 .mw-hl {
   position: absolute; left: 0; right: 0; top: 0; z-index: 0; background: var(--mw-row-active);
-  border-radius: var(--mw-radius-group); transition: transform 260ms var(--mw-ease), height 260ms var(--mw-ease);
+  border-radius: var(--mw-radius-group); transition: transform var(--mw-duration-slow) var(--mw-ease), height var(--mw-duration-slow) var(--mw-ease);
 }
 .mw-row {
   position: relative; z-index: 2;
   display: grid; grid-template-columns: repeat(var(--n), minmax(var(--mw-col-min), 1fr));
-  transition: opacity 220ms var(--mw-ease);
+  transition: opacity var(--mw-duration) var(--mw-ease);
   scroll-margin-top: var(--head-h, 100px);
 }
 .mw-row.mw-step { cursor: pointer; padding-block: 7px 9px; scroll-margin-top: calc(var(--head-h, 100px) + 32px); }
@@ -231,16 +232,16 @@
   width: fit-content; max-width: calc(100% - 12px); margin-inline: auto; box-sizing: border-box;
   padding: 3px 10px 3px 5px; border: var(--mw-border) solid var(--mw-line); border-radius: var(--mw-radius);
   background: var(--mw-step-bg); text-align: center; font-size: var(--mw-text-small); color: var(--mw-ink);
-  white-space: pre-line; transition: border-color 220ms var(--mw-ease), background 220ms var(--mw-ease);
+  white-space: pre-line; transition: border-color var(--mw-duration) var(--mw-ease), background var(--mw-duration) var(--mw-ease);
 }
 .mw-num {
   flex: none; color: var(--text-faint); font-variant-numeric: tabular-nums;
-  transition: color 220ms var(--mw-ease);
+  transition: color var(--mw-duration) var(--mw-ease);
 }
 .mw-wire {
   position: relative; height: 12px; margin-top: 4px; color: var(--mw-wire);
   margin-inline: calc(100% / (2 * var(--k)));
-  transition: color 220ms var(--mw-ease);
+  transition: color var(--mw-duration) var(--mw-ease);
 }
 .mw-wire::before {
   content: ""; position: absolute; left: 0; right: 0; top: calc(50% - var(--mw-stroke) / 2);
@@ -262,7 +263,7 @@
   margin-inline: max(6px, calc(100% / (2 * var(--k)) - 56px));
   padding: 7px 12px; border-radius: var(--mw-radius); font-size: var(--mw-text-small); text-align: center; white-space: pre-line;
   background: var(--mw-step-bg); border: var(--mw-stroke) dashed var(--mw-wire); color: var(--mw-ink);
-  transition: border-color 220ms var(--mw-ease), background 220ms var(--mw-ease);
+  transition: border-color var(--mw-duration) var(--mw-ease), background var(--mw-duration) var(--mw-ease);
 }
 
 /* Phase headings stick under the participant header while their own rows scroll past (each
@@ -336,13 +337,14 @@
   background-size: 20px 20px;
 }
 .mw-canvas { position: relative; transform-origin: 0 0; }
-.mw-panning .mw-mapwrap, .mw-panning .mw-mapwrap * { cursor: grabbing !important; }
+/* .mw-root.mw-panning outranks the grab, move and resize cursors on the cards, boxes and handles. */
+.mw-root.mw-panning .mw-mapwrap, .mw-root.mw-panning .mw-mapwrap * { cursor: grabbing; }
 
 .mw-mbox {
   position: absolute; z-index: 1; box-sizing: border-box; cursor: move; touch-action: none;
   border: var(--mw-border) solid var(--mw-edge, var(--mw-line)); border-radius: var(--mw-radius);
   background: color-mix(in srgb, var(--mw-fill, var(--background-secondary)) 60%, transparent);
-  transition: opacity 220ms var(--mw-ease), border-color 220ms var(--mw-ease);
+  transition: opacity var(--mw-duration) var(--mw-ease), border-color var(--mw-duration) var(--mw-ease);
 }
 .mw-mbox-label { position: absolute; left: 4px; bottom: 100%; margin-bottom: 4px; max-width: 100%; color: var(--mw-ink); font-size: var(--font-ui-medium); font-weight: var(--font-medium); }
 .mw-mhandle {
@@ -361,7 +363,7 @@
 .mw-medges { position: absolute; top: 0; left: 0; z-index: 2; pointer-events: none; overflow: visible; }
 .mw-medge {
   fill: none; stroke: var(--mw-wire); stroke-width: var(--mw-stroke); stroke-linejoin: round;
-  transition: opacity 220ms var(--mw-ease);
+  transition: opacity var(--mw-duration) var(--mw-ease);
 }
 .mw-medge.mw-dashed { stroke-dasharray: 5 4; }
 .mw-medge.mw-active { stroke: var(--mw-accent); stroke-width: var(--mw-stroke-active); opacity: 1; }
@@ -382,5 +384,5 @@
 .mw-mcard .mw-cond .mw-kind { font-weight: normal; color: var(--text-faint); }
 
 @media (prefers-reduced-motion: reduce) {
-  .mw-root *, .mw-root *::before { transition: none !important; }
+  .mw-root { --mw-duration: 0ms; --mw-duration-slow: 0ms; }
 }

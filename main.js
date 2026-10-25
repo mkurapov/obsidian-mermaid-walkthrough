@@ -273,6 +273,9 @@ function renderDiagram(model, el) {
       appendStepLabel(spanEl(row, lo, hi, k).createDiv('mw-notecard'), it);
     }
   });
+  // Room for even the last step to scroll up under the header. It is a spacer inside the content,
+  // not padding, because the sticky header only stays pinned within its parent's content box.
+  el.createDiv('mw-tail');
 }
 
 // The cell a step's label sits in, stretched across the columns it joins.
