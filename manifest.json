@@ -1,7 +1,7 @@
 {
   "id": "mermaid-walkthrough",
   "name": "Mermaid Walkthrough",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "minAppVersion": "1.4.0",
   "description": "Walk through Mermaid sequence diagrams one step at a time, highlighting the active message, its path and participants. Switch between a Sequence view that lists steps and phases and a Map view where you arrange participants yourself.",
   "author": "Max Kurapov",
