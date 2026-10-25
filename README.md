@@ -7,13 +7,13 @@ It has two views:
 ### Sequence
 The diagram as a list of steps under a header of participants that stays pinned while you scroll. Phase headings pin under the participants while their steps scroll past, with any `alt`, `opt` or `loop` heading pinned just below. The current step moves to the top, so you can always see who is involved.
 
-![Sequence Flow](./docs/assets/sequence.gif)
+![Sequence View](./docs/assets/sequence.gif)
 
 
 ### Map 
 The participants and their boxes as cards on a canvas, with elbow arrows between them. The current step's label sits on its arrow, with any `alt`, `opt` or `loop` it belongs to in a tab on top. The phase it is in shows in a box at the bottom left of the canvas. Drag cards and boxes into whatever layout you want. The layout is saved per diagram.
 
-![Sequence Flow](./docs/assets/map.gif)
+![Map View](./docs/assets/map.gif)
 
 ## Usage
 
