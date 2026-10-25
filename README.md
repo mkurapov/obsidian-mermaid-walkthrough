@@ -86,10 +86,6 @@ The plugin is plain JavaScript with no build step. Symlink the repo into a vault
 ln -s "$PWD" <vault>/.obsidian/plugins/mermaid-walkthrough
 ```
 
-The [Hot Reload](https://github.com/pjeby/hot-reload) plugin reloads it on save.
-
-To release, bump `version` in `manifest.json`, add it to `versions.json`, then push a tag that is the version exactly (no `v` prefix). The release workflow creates a draft release with `main.js`, `manifest.json` and `styles.css` attached. After that, publish it from GitHub.
-
 ## License
 
 [MIT](LICENSE)
