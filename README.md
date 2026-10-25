@@ -1,6 +1,6 @@
 # Mermaid Walkthrough
 
-An Obsidian plugin for stepping through the Mermaid sequence diagrams in a note one message at a time. The active message, its path and its participants are highlighted, and everything else fades out.
+An Obsidian plugin to walk through Mermaid sequence diagrams one step at a time, highlighting the active message, its path and participants. 
 
 It has two views:
 
@@ -88,7 +88,7 @@ ln -s "$PWD" <vault>/.obsidian/plugins/mermaid-walkthrough
 
 The [Hot Reload](https://github.com/pjeby/hot-reload) plugin reloads it on save.
 
-To release, bump `version` in `manifest.json`, add it to `versions.json`, then create a GitHub release whose tag is the version exactly (no `v` prefix) with `main.js`, `manifest.json` and `styles.css` attached.
+To release, bump `version` in `manifest.json`, add it to `versions.json`, then push a tag that is the version exactly (no `v` prefix). The release workflow creates a draft release with `main.js`, `manifest.json` and `styles.css` attached. After that, publish it from GitHub.
 
 ## License
 
