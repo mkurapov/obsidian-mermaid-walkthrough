@@ -383,6 +383,38 @@
 .mw-mcard .mw-cond + .mw-label { width: 100%; justify-content: flex-start; border-top-left-radius: 0; border-top-right-radius: 0; }
 .mw-mcard .mw-cond .mw-kind { font-weight: normal; color: var(--text-faint); }
 
+/* ---- Inline: the "View walkthrough" button on a rendered diagram, and the walkthrough that replaces it ---- */
+.mw-host { position: relative; }
+.mw-step-btn {
+  position: absolute; top: var(--size-4-2); right: var(--size-4-2); z-index: 2;
+  display: inline-flex; align-items: center; gap: var(--size-2-2);
+  height: 26px; padding: 0 var(--size-4-2); font-size: var(--font-ui-smaller);
+  opacity: 0; transition: opacity 120ms ease;
+}
+.mw-step-btn .mw-step-icon { display: inline-flex; }
+.mw-step-btn .mw-step-icon svg { width: 14px; height: 14px; }
+/* Live Preview keeps its own edit button in the top-right corner, so ours sits beside it. */
+.cm-embed-block > .mw-step-btn { right: 40px; }
+.mw-host:hover > .mw-step-btn, .mw-step-btn:focus-visible, .is-mobile .mw-step-btn { opacity: 1; }
+/* While open, the walkthrough takes the diagram's place; Live Preview's edit button stays. */
+.mw-inline-open > :not(.mw-inline):not(.edit-block-button) { display: none; }
+.mw-inline.mw-root {
+  --mw-inline-h: min(70vh, 640px);
+  height: var(--mw-inline-h); margin: var(--size-4-2) 0;
+  border: var(--border-width) solid var(--background-modifier-border); border-radius: var(--radius-m);
+  overflow: hidden; text-align: left; white-space: normal;
+  /* A note is narrower than a pane, so columns may shrink further before the stage scrolls sideways:
+     about nine participants fit a readable line width. Past that, names would break every few letters,
+     so wider diagrams keep scrolling instead. */
+  --mw-col-min: 80px;
+}
+.mw-inline .mw-actor { padding: 6px 4px; }
+/* Narrow columns can't fit a long word (a path, an identifier), so let it break rather than spill. */
+.mw-inline .mw-label, .mw-inline .mw-notecard { overflow-wrap: anywhere; }
+.mw-inline .mw-tail { height: calc(var(--mw-inline-h) - var(--head-h, 100px)); }
+/* The diagram sits right above where the walkthrough opens, so its name would only repeat the note. */
+.mw-inline .mw-title { display: none; }
+
 @media (prefers-reduced-motion: reduce) {
   .mw-root { --mw-duration: 0ms; --mw-duration-slow: 0ms; }
 }
