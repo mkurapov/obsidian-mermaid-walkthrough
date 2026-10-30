@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="428" height="88" viewBox="0 0 428 88" role="img" aria-labelledby="title desc">
+  <title id="title">Add to Obsidian</title>
+  <desc id="desc">Open the Mermaid Walkthrough page in the official Obsidian plugin directory.</desc>
+  <defs>
+    <!-- The plugin's tile in the directory: green, lit violet from below, with a soft top-to-bottom shade. -->
+    <radialGradient id="glow" cx=".5" cy="1.3" r=".9">
+      <stop offset="0" stop-color="#8b5cf6"/>
+      <stop offset="1" stop-color="#8b5cf6" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="shade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".12"/>
+      <stop offset="1" stop-color="#000" stop-opacity=".12"/>
+    </linearGradient>
+    <filter id="lift" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="1" stdDeviation="0" flood-color="#000" flood-opacity=".2"/>
+    </filter>
+  </defs>
+  <rect x=".5" y=".5" width="427" height="87" rx="16" fill="#1e1e1e" stroke="#fff" stroke-opacity=".1"/>
+
+  <rect x="16" y="16" width="56" height="56" rx="12" fill="#44cf6e"/>
+  <rect x="16" y="16" width="56" height="56" rx="12" fill="url(#glow)"/>
+  <rect x="16" y="16" width="56" height="56" rx="12" fill="url(#shade)"/>
+  <rect x="16.5" y="16.5" width="55" height="55" rx="11.5" fill="none" stroke="#fff" stroke-opacity=".1"/>
+  <!-- Lucide "workflow", the plugin's icon. -->
+  <g transform="translate(30 30) scale(1.1667)" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" filter="url(#lift)">
+    <rect width="8" height="8" x="3" y="3" rx="2"/>
+    <path d="M7 11v4a2 2 0 0 0 2 2h4"/>
+    <rect width="8" height="8" x="13" y="13" rx="2"/>
+  </g>
+
+  <g font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Inter, Helvetica, Arial, sans-serif">
+    <text x="88" y="41" fill="#fff" font-size="17" font-weight="700">Mermaid Walkthrough</text>
+    <text x="88" y="61" fill="#a3a3a3" font-size="12">Obsidian community plugin</text>
+
+    <rect x="288" y="26" width="124" height="36" rx="8" fill="#7c3aed"/>
+    <text x="350" y="48.5" fill="#fff" font-size="13" font-weight="600" text-anchor="middle">Add to Obsidian</text>
+  </g>
+</svg>

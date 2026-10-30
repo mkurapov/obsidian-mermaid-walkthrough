@@ -2,17 +2,40 @@
 
 An Obsidian plugin to walk through Mermaid sequence diagrams one step at a time, highlighting the active message, its path and participants. 
 
-
-![Sequence View](./docs/assets/demo.gif)
-
 It has two views:
 
 ### Sequence
 The diagram as a list of steps under a header of participants that stays pinned while you scroll. Phase headings pin under the participants while their steps scroll past, with any `alt`, `opt` or `loop` heading pinned just below. The current step moves to the top, so you can always see who is involved.
 
+![Sequence walkthrough](./docs/assets/sequence.gif)
+
 ### Map 
+
 The participants and their boxes as cards on a canvas, with elbow arrows between them. The current step's label sits on its arrow, with any `alt`, `opt` or `loop` it belongs to in a tab on top. The phase it is in shows in a box at the bottom left of the canvas. Drag cards and boxes into whatever layout you want. The layout is saved per diagram.
 
+![Map walkthrough](./docs/assets/map.gif)
+
+
+## Installation
+
+[![Add to Obsidian: install Mermaid Walkthrough](docs/assets/add-to-obsidian.svg)](https://community.obsidian.md/plugins/mermaid-walkthrough)
+
+### From Community plugins
+
+1. In Obsidian, open **Settings → Community plugins**.
+2. If prompted, select **Turn on community plugins**.
+3. Select **Browse**, search for **Mermaid Walkthrough**, and select **Install**.
+4. Select **Enable**, or turn it on later under **Settings → Community plugins → Installed plugins**.
+
+Or use the **Add to Obsidian** button above: it opens the plugin's page in the official directory, which hands off to Obsidian to install it.
+
+Updates arrive the same way: **Settings → Community plugins → Check for updates**.
+
+### Manually
+
+1. Download `main.js`, `manifest.json` and `styles.css` from the [latest release](https://github.com/mkurapov/obsidian-mermaid-walkthrough/releases/latest).
+2. Put them in `<vault>/.obsidian/plugins/mermaid-walkthrough/`.
+3. Reload Obsidian and enable **Mermaid Walkthrough** under **Settings → Community plugins**.
 
 ## Usage
 
@@ -26,6 +49,8 @@ You can open the walkthrough beside a note or inside it. Either way, open a note
 Each diagram in the note gets its own tab, named after the heading above it. The walkthrough re-reads the note when you edit it.
 
 ### Inside the note
+
+![Toggle walkthrough](./docs/assets/toggle.gif)
 
 Hover a sequence diagram and click **View walkthrough**. The walkthrough opens in the diagram's place, in both Live Preview and Reading view. The keyboard shortcuts work while it has focus; click it to get them back after typing elsewhere. **✕** brings the diagram back. Other Mermaid diagrams render as usual and get no button.
 
